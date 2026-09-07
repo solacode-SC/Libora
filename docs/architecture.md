@@ -161,7 +161,7 @@ class RemotePdfItem {
 
 ---
 
-## 6. Database Schema (Drift / SQLite)
+## 6. Database Schema (Drift / SQLite — Schema v2)
 
 ### `pdfs` Table
 - `id` (TEXT, Primary Key)
@@ -179,6 +179,7 @@ class RemotePdfItem {
 - `created_at` (DATETIME, NOT NULL)
 - `updated_at` (DATETIME, NOT NULL)
 - `last_read_at` (DATETIME, NULLABLE)
+- `file_hash` (TEXT, NULLABLE) — SHA-256 hash for fast deduplication
 
 ### `folders` Table
 - `id` (TEXT, Primary Key)
@@ -196,7 +197,76 @@ class RemotePdfItem {
 
 ---
 
-## 7. Future GitHub Integration
+## 7. Managed Local Storage Architecture
+
+Libora isolates all user-imported files in the application documents directory under a deterministic folder hierarchy:
+
+```text
+<app_documents_directory>/libora/
+├── library/
+│   ├── pdfs/
+│   │   └── <uuid-v4>.pdf      # Immutable sandboxed copies of imported PDFs
+│   └── covers/
+│       └── <uuid-v4>.jpg      # High-density JPEG cover thumbnails rendered via pdfrx
+└── libora.sqlite              # Drift SQLite relational database file
+```
+
+### Ingestion & Deduplication Pipeline
+1. **Selection**: User selects one or multiple PDFs via `file_picker`.
+2. **Validation**: Files are inspected for magic bytes `%PDF-` (`0x25, 0x50, 0x44, 0x46, 0x2D`) to ensure valid PDF headers.
+3. **Hashing**: SHA-256 hash is computed.
+4. **Deduplication**: Database is queried for matching `file_hash` (or matching `file_size` + normalized `file_name`). Existing items are skipped with clear user feedback.
+5. **Storage**: File is copied into `<docs>/libora/library/pdfs/<uuid>.pdf`.
+6. **Cover Generation**: Page 0 is rendered to high-quality JPEG using `pdfrx` and stored in `<docs>/libora/library/covers/<uuid>.jpg`.
+7. **Metadata & Title Cleaning**: Page count is extracted. Underscores, hyphens, and extension artifacts in the filename are cleaned into a readable book title (e.g. `flutter_in_action.pdf` -> `Flutter In Action`).
+8. **Persistence**: `PdfItem` record is saved to SQLite and automatically published across reactive Drift streams to Riverpod controllers.
+
+---
+
+## 9. PDF Reader Architecture (Phase 2)
+
+### Overview
+The reader provides a full-featured, offline, and visually quiet reading experience powered by the mature `pdfrx` rendering engine. It runs on a dedicated route (`/reader/:pdfId`) outside the shell scaffold to provide maximum reading area across desktop and mobile.
+
+### Layer Separation & Responsibilities
+- **Presentation**:
+  - `ReaderScreen`: Hosts `PdfViewer.file`, animated toolbars, and keyboard shortcut dispatchers.
+  - `ReaderToolbar`: Top bar with back button, truncated document title, page indicator, and actions menu.
+  - `ReaderBottomBar`: Compact bottom bar with zoom in/out, zoom percentage, fit-to-width button, and page progress.
+  - `GoToPageDialog`: Modal with validation (`1 <= page <= totalPages`).
+  - `PdfInfoDialog`: Modal with metadata (pages, size, folder, dates, calculated progress).
+  - `ReaderLoadingWidget` / `ReaderErrorWidget`: Controlled, friendly states for loading, missing files, and corrupt PDFs.
+- **State Management**:
+  - `ReaderController` (`Notifier<ReaderState>`): Resolves local paths via `PdfRepository`, handles debounced position persistence (500ms), and coordinates toolbar visibility.
+  - `ReaderState`: Immutable state tracking `currentPage`, `totalPages`, `isToolbarVisible`, `status`, and computed `progress`.
+- **Data & Persistence**:
+  - `PdfRepository` & `PdfsDao`: Persist `currentPage` and `lastReadAt` via `updateReadingProgress(id, page)`.
+  - Re-opening any document restores the last known page directly via `initialPageNumber`.
+
+### Reading Position & Progress Persistence
+- UI updates page numbers immediately on scroll.
+- SQLite writes are debounced by 500ms to avoid disk thrashing during rapid scrolling.
+- Exiting the reader (via Back button, system pop, or `Esc` key) triggers an immediate, non-debounced position write.
+- Reading progress percentage is derived dynamically on-the-fly: `progress = currentPage / totalPages`.
+
+### Keyboard Shortcuts (Desktop)
+- `Arrow Up` / `Arrow Down`: Smooth vertical scrolling
+- `Page Up` / `Page Down`: Page-by-page scrolling
+- `Home` / `End`: First and last page navigation
+- `+` / `=`: Zoom in
+- `-`: Zoom out
+- `0`: Fit width / reset zoom
+- `Esc`: Persist reading position and exit reader
+
+### Known Limitations (Intentionally Deferred)
+- In-document text selection and copy
+- Full-text search within PDF contents
+- In-document highlights and annotations
+- In-reader bookmark creation (scheduled for Phase 3)
+
+---
+
+## 10. Future GitHub Integration
 
 A connected GitHub repository adheres to the following structural convention:
 

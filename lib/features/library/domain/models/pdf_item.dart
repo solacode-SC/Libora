@@ -15,6 +15,7 @@ class PdfItem {
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? lastReadAt;
+  final String? fileHash;
 
   const PdfItem({
     required this.id,
@@ -32,6 +33,7 @@ class PdfItem {
     required this.createdAt,
     required this.updatedAt,
     this.lastReadAt,
+    this.fileHash,
   });
 
   PdfItem copyWith({
@@ -50,6 +52,7 @@ class PdfItem {
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? lastReadAt,
+    String? fileHash,
   }) {
     return PdfItem(
       id: id ?? this.id,
@@ -67,6 +70,7 @@ class PdfItem {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       lastReadAt: lastReadAt ?? this.lastReadAt,
+      fileHash: fileHash ?? this.fileHash,
     );
   }
 }

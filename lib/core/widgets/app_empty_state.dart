@@ -38,55 +38,63 @@ class AppEmptyState extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 420),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Minimal icon box
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle,
-                borderRadius: AppSpacing.roundedMd,
-                border: Border.all(
-                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                  width: 1.0,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Minimal icon box
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppColors.darkSurfaceSubtle
+                      : AppColors.lightSurfaceSubtle,
+                  borderRadius: AppSpacing.roundedMd,
+                  border: Border.all(
+                    color: isDark
+                        ? AppColors.darkBorder
+                        : AppColors.lightBorder,
+                    width: 1.0,
+                  ),
+                ),
+                child: Icon(
+                  icon,
+                  size: 20,
+                  color: isDark
+                      ? AppColors.darkTextSecondary
+                      : AppColors.lightTextSecondary,
                 ),
               ),
-              child: Icon(
-                icon,
-                size: 20,
-                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.2,
+                ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                letterSpacing: -0.2,
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                description,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: isDark
+                      ? AppColors.darkTextSecondary
+                      : AppColors.lightTextSecondary,
+                ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              description,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-              ),
-            ),
-            if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: AppSpacing.lg),
-              AppButton.secondary(
-                label: actionLabel!,
-                icon: actionIcon,
-                onPressed: onAction,
-                size: AppButtonSize.small,
-              ),
+              if (actionLabel != null && onAction != null) ...[
+                const SizedBox(height: AppSpacing.lg),
+                AppButton.secondary(
+                  label: actionLabel!,
+                  icon: actionIcon,
+                  onPressed: onAction,
+                  size: AppButtonSize.small,
+                ),
+              ],
             ],
-          ],
+          ),
         ),
-      ),
       ),
     );
   }

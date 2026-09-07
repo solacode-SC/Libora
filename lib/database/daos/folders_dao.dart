@@ -23,4 +23,12 @@ class FoldersDao extends DatabaseAccessor<AppDatabase> with _$FoldersDaoMixin {
 
   Future<int> deleteFolder(String id) =>
       (delete(folders)..where((t) => t.id.equals(id))).go();
+
+  Future<int> renameFolder(String id, String newName) =>
+      (update(folders)..where((t) => t.id.equals(id))).write(
+        FoldersCompanion(
+          name: Value(newName),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
 }

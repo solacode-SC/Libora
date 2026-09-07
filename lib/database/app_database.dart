@@ -16,10 +16,20 @@ part 'app_database.g.dart';
   daos: [PdfsDao, FoldersDao, BookmarksDao],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase([QueryExecutor? e]) : super(e ?? driftDatabase(name: 'libora'));
+  AppDatabase([QueryExecutor? e])
+    : super(
+        e ??
+            driftDatabase(
+              name: 'libora',
+              web: DriftWebOptions(
+                sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+                driftWorker: Uri.parse('drift_worker.js'),
+              ),
+            ),
+      );
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration {
@@ -28,7 +38,9 @@ class AppDatabase extends _$AppDatabase {
         await m.createAll();
       },
       onUpgrade: (Migrator m, int from, int to) async {
-        // Schema migrations for future phases
+        if (from < 2) {
+          await m.addColumn(pdfs, pdfs.fileHash);
+        }
       },
     );
   }

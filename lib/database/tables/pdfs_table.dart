@@ -17,6 +17,7 @@ class Pdfs extends Table {
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
   DateTimeColumn get lastReadAt => dateTime().nullable()();
+  TextColumn get fileHash => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

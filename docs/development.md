@@ -113,3 +113,18 @@ flutter test
 - Always use `AppLogger` instead of `print` or `debugPrint`.
 - Never commit secrets, GitHub tokens, or `.env` files.
 
+---
+
+## 6. PDF Reader Notes (Phase 2)
+
+- The reader is accessed via `/reader/:pdfId` and renders using the native `pdfrx` package backed by `pdfium`.
+- Navigation state and position are managed via `readerControllerProvider(pdfId)`.
+- All reading positions (`currentPage`) and `lastReadAt` timestamps are persisted to Drift SQLite.
+- Keyboard shortcuts for Linux/Desktop:
+  - `Arrow Up` / `Arrow Down`: scroll up / down
+  - `Page Up` / `Page Down`: previous / next page
+  - `Home` / `End`: jump to page 1 / end
+  - `+` / `=`: zoom in
+  - `-`: zoom out
+  - `0`: fit width
+  - `Esc`: exit reader and return to library

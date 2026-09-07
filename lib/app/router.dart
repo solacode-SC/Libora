@@ -34,6 +34,15 @@ final appRouter = GoRouter(
         GoRoute(
           path: '/library',
           builder: (context, state) => const LibraryScreen(),
+          routes: [
+            GoRoute(
+              path: 'folder/:folderId',
+              builder: (context, state) {
+                final folderId = state.pathParameters['folderId'];
+                return LibraryScreen(initialFolderId: folderId);
+              },
+            ),
+          ],
         ),
         GoRoute(
           path: '/explore',

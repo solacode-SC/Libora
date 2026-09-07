@@ -15,6 +15,13 @@ abstract class PdfRepository {
   Future<void> deletePdf(String id);
   Future<void> toggleFavorite(String id, bool isFavorite);
   Future<void> updateReadingProgress(String id, int page);
+  Future<PdfItem?> findDuplicate({
+    String? hash,
+    int? fileSize,
+    String? fileName,
+  });
+  Future<void> updateTitle(String id, String title);
+  Future<void> moveToFolder(String id, String? folderId);
 }
 
 class DriftPdfRepository implements PdfRepository {
@@ -39,6 +46,7 @@ class DriftPdfRepository implements PdfRepository {
       createdAt: entry.createdAt,
       updatedAt: entry.updatedAt,
       lastReadAt: entry.lastReadAt,
+      fileHash: entry.fileHash,
     );
   }
 
@@ -91,6 +99,7 @@ class DriftPdfRepository implements PdfRepository {
       createdAt: Value(pdf.createdAt),
       updatedAt: Value(pdf.updatedAt),
       lastReadAt: Value(pdf.lastReadAt),
+      fileHash: Value(pdf.fileHash),
     );
     await _dao.insertPdf(companion);
   }
@@ -108,6 +117,30 @@ class DriftPdfRepository implements PdfRepository {
   @override
   Future<void> updateReadingProgress(String id, int page) async {
     await _dao.updateReadingProgress(id, page);
+  }
+
+  @override
+  Future<PdfItem?> findDuplicate({
+    String? hash,
+    int? fileSize,
+    String? fileName,
+  }) async {
+    final entry = await _dao.findDuplicate(
+      hash: hash,
+      fileSize: fileSize,
+      fileName: fileName,
+    );
+    return entry != null ? _toItem(entry) : null;
+  }
+
+  @override
+  Future<void> updateTitle(String id, String title) async {
+    await _dao.updateTitle(id, title);
+  }
+
+  @override
+  Future<void> moveToFolder(String id, String? folderId) async {
+    await _dao.moveToFolder(id, folderId);
   }
 }
 

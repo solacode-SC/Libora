@@ -46,4 +46,48 @@ class PdfsDao extends DatabaseAccessor<AppDatabase> with _$PdfsDaoMixin {
           lastReadAt: Value(DateTime.now()),
         ),
       );
+
+  Future<PdfEntry?> getPdfByHash(String hash) =>
+      (select(pdfs)..where((t) => t.fileHash.equals(hash))).getSingleOrNull();
+
+  Future<PdfEntry?> findDuplicate({
+    String? hash,
+    int? fileSize,
+    String? fileName,
+  }) {
+    return (select(pdfs)
+          ..where((t) {
+            final conditions = <Expression<bool>>[];
+            if (hash != null && hash.isNotEmpty) {
+              conditions.add(t.fileHash.equals(hash));
+            }
+            if (fileSize != null && fileName != null) {
+              conditions.add(
+                t.fileSize.equals(fileSize) & t.fileName.equals(fileName),
+              );
+            }
+            if (conditions.isEmpty) return const Constant(false);
+            return conditions.reduce((a, b) => a | b);
+          })
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  Future<int> updateTitle(String id, String title) =>
+      (update(pdfs)..where((t) => t.id.equals(id))).write(
+        PdfsCompanion(title: Value(title), updatedAt: Value(DateTime.now())),
+      );
+
+  Future<int> moveToFolder(String id, String? folderId) =>
+      (update(pdfs)..where((t) => t.id.equals(id))).write(
+        PdfsCompanion(
+          folderId: Value(folderId),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+
+  Future<int> detachFromFolder(String folderId) =>
+      (update(pdfs)..where((t) => t.folderId.equals(folderId))).write(
+        const PdfsCompanion(folderId: Value(null)),
+      );
 }

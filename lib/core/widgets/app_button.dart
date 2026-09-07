@@ -3,16 +3,9 @@ import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 
-enum AppButtonVariant {
-  primary,
-  secondary,
-  ghost,
-}
+enum AppButtonVariant { primary, secondary, ghost }
 
-enum AppButtonSize {
-  small,
-  medium,
-}
+enum AppButtonSize { small, medium }
 
 /// A stable, editorial button that guarantees zero layout shifts across
 /// default, hover, pressed, focused, and disabled states.
@@ -93,7 +86,9 @@ class _AppButtonState extends State<AppButton> {
       child: GestureDetector(
         onTapDown: _isEnabled ? (_) => setState(() => _isPressed = true) : null,
         onTapUp: _isEnabled ? (_) => setState(() => _isPressed = false) : null,
-        onTapCancel: _isEnabled ? () => setState(() => _isPressed = false) : null,
+        onTapCancel: _isEnabled
+            ? () => setState(() => _isPressed = false)
+            : null,
         onTap: widget.onPressed,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 140),
@@ -105,22 +100,17 @@ class _AppButtonState extends State<AppButton> {
             color: colors.background,
             borderRadius: AppSpacing.roundedSm,
             // Border width is strictly 1.0 at all times to prevent layout shifts
-            border: Border.all(
-              color: colors.border,
-              width: 1.0,
-            ),
+            border: Border.all(color: colors.border, width: 1.0),
           ),
           child: Row(
-            mainAxisSize: widget.isFullWidth ? MainAxisSize.max : MainAxisSize.min,
+            mainAxisSize: widget.isFullWidth
+                ? MainAxisSize.max
+                : MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               if (widget.icon != null) ...[
-                Icon(
-                  widget.icon,
-                  size: iconSize,
-                  color: colors.foreground,
-                ),
+                Icon(widget.icon, size: iconSize, color: colors.foreground),
                 const SizedBox(width: AppSpacing.xs),
               ],
               Text(
@@ -143,7 +133,9 @@ class _AppButtonState extends State<AppButton> {
   _ButtonColors _resolveColors(bool isDark) {
     if (!_isEnabled) {
       return _ButtonColors(
-        background: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle,
+        background: isDark
+            ? AppColors.darkSurfaceSubtle
+            : AppColors.lightSurfaceSubtle,
         border: isDark ? AppColors.darkBorder : AppColors.lightBorder,
         foreground: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
       );
@@ -327,7 +319,9 @@ class _AppIconButtonState extends State<AppIconButton> {
       fg = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
     } else if (_isHovered || _isFocused) {
       bg = isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle;
-      border = isDark ? AppColors.darkBorderStrong : AppColors.lightBorderStrong;
+      border = isDark
+          ? AppColors.darkBorderStrong
+          : AppColors.lightBorderStrong;
       fg = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
     } else {
       bg = Colors.transparent;
@@ -342,7 +336,9 @@ class _AppIconButtonState extends State<AppIconButton> {
       child: GestureDetector(
         onTapDown: _isEnabled ? (_) => setState(() => _isPressed = true) : null,
         onTapUp: _isEnabled ? (_) => setState(() => _isPressed = false) : null,
-        onTapCancel: _isEnabled ? () => setState(() => _isPressed = false) : null,
+        onTapCancel: _isEnabled
+            ? () => setState(() => _isPressed = false)
+            : null,
         onTap: widget.onPressed,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 140),
@@ -355,11 +351,7 @@ class _AppIconButtonState extends State<AppIconButton> {
             borderRadius: AppSpacing.roundedSm,
             border: Border.all(color: border, width: 1.0),
           ),
-          child: Icon(
-            widget.icon,
-            size: widget.size * 0.5,
-            color: fg,
-          ),
+          child: Icon(widget.icon, size: widget.size * 0.5, color: fg),
         ),
       ),
     );
@@ -382,4 +374,3 @@ class _ButtonColors {
     required this.foreground,
   });
 }
-

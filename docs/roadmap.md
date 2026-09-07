@@ -4,7 +4,7 @@ This roadmap defines the iterative development plan for Libora from initial foun
 
 ---
 
-## Phase 0 — Foundation (Current)
+## Phase 0 — Foundation (Completed)
 - Establish Flutter project scaffolding for desktop and mobile targets.
 - Feature-oriented clean architecture and unidirectional dependency rules.
 - State management foundation with Riverpod.
@@ -16,26 +16,38 @@ This roadmap defines the iterative development plan for Libora from initial foun
 
 ---
 
-## Phase 1 — Local PDF Library
-- Local file picking and importing via `file_picker`.
-- Copying/linking files to sandboxed application documents directory.
-- PDF metadata extraction (title, page count, file size).
-- First-page cover image generation and caching (`pdfrx` / native renderer).
-- Library view: grid and list views, sorting (date added, title, last read), responsive card layouts.
-- Empty states and import feedback.
+## Phase 1 — Local PDF Library (Completed)
+- Local file picking and importing via `file_picker` (supporting single and multi-file selection).
+- Sandboxed application documents storage in `<docs>/libora/library/pdfs/` and `covers/`.
+- PDF validation via magic bytes (`%PDF-`), page count extraction, and title formatting.
+- SHA-256 file hashing and fast deduplication (rejecting re-imports gracefully).
+- High-quality page-0 cover thumbnail extraction and disk caching via `pdfrx`.
+- Responsive editorial `PdfCard` grid with missing-file detection badges.
+- Dynamic instant search, tab filters (All, Favorites, Recent), and 6-way sorting.
+- Folder creation, folder renaming, moving PDFs between folders, and safe folder deletion.
+- In-place PDF renaming and safe deletion (removing managed PDF file, cover, and DB entry).
+- Automated test suite covering DAOs, business logic, sorting, deduplication, responsive layout, and routing.
 
 ---
 
-## Phase 2 — PDF Reader
-- PDF rendering engine integration using `pdfrx`.
-- Continuous vertical scrolling and single-page horizontal paging modes.
-- Zoom, pan, and page navigation controls.
-- Automatic reading progress tracking (saving `currentPage` and `lastReadAt`).
-- Fullscreen immersive reading mode for desktop and mobile.
+## Phase 2 — PDF Reader (Completed)
+- Fullscreen immersive PDF reader route (`/reader/:pdfId`) decoupled from library UI.
+- Native hardware-accelerated rendering, smooth vertical scrolling, and pinch/mouse zoom via `pdfrx`.
+- Interactive toolbar with back button, truncated title, page indicators, and options menu.
+- Fit Width, Fit Page, and reset zoom actions.
+- Validated Go to Page dialog (`1 <= page <= totalPages`).
+- PDF Information dialog showing title, file name, pages, size, folder, dates, and live progress bar.
+- Automatic reading position persistence (`currentPage`, `lastReadAt`) with 500ms debounce.
+- Instant position persistence on reader exit (`Esc` or Back).
+- Restoration of reading position on document reopen.
+- Controlled error states for missing local files (with "Remove from Library" option) and corrupted PDFs.
+- Desktop keyboard shortcuts (arrows, Page Up/Down, Home/End, +/-, 0, Esc).
+- Adaptive responsive layout across Desktop, Tablet, and Mobile.
+- Full test coverage for reader state, progress calculations, and position persistence.
 
 ---
 
-## Phase 3 — Search, Favorites & Bookmarks
+## Phase 3 — Search, Favorites, Bookmarks & Continue Reading
 - Instant real-time search across local PDF library titles.
 - Favorite toggling with persistent state in SQLite.
 - Favorites dedicated view with filter options.

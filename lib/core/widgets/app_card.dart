@@ -32,7 +32,8 @@ class _AppCardState extends State<AppCard> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final defaultBg = widget.customBackground ??
+    final defaultBg =
+        widget.customBackground ??
         (isDark ? AppColors.darkSurface : AppColors.lightSurface);
     final defaultBorder = widget.isSelected
         ? (isDark ? AppColors.darkTextPrimary : AppColors.strongCharcoal)
@@ -43,9 +44,15 @@ class _AppCardState extends State<AppCard> {
         : (isDark ? AppColors.darkBorderStrong : AppColors.lightBorderStrong);
 
     return MouseRegion(
-      onEnter: widget.onTap != null ? (_) => setState(() => _isHovered = true) : null,
-      onExit: widget.onTap != null ? (_) => setState(() => _isHovered = false) : null,
-      cursor: widget.onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      onEnter: widget.onTap != null
+          ? (_) => setState(() => _isHovered = true)
+          : null,
+      onExit: widget.onTap != null
+          ? (_) => setState(() => _isHovered = false)
+          : null,
+      cursor: widget.onTap != null
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
@@ -66,4 +73,3 @@ class _AppCardState extends State<AppCard> {
     );
   }
 }
-

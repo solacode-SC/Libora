@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../database/app_database.dart';
 import '../../../../database/daos/folders_dao.dart';
+import '../../../../database/daos/pdfs_dao.dart';
 import '../../domain/models/folder_item.dart';
 
 abstract class FolderRepository {
@@ -10,13 +11,15 @@ abstract class FolderRepository {
   Future<List<FolderItem>> getAllFolders();
   Future<FolderItem?> getFolderById(String id);
   Future<void> createFolder(FolderItem folder);
+  Future<void> renameFolder(String id, String newName);
   Future<void> deleteFolder(String id);
 }
 
 class DriftFolderRepository implements FolderRepository {
   final FoldersDao _dao;
+  final PdfsDao? _pdfsDao;
 
-  DriftFolderRepository(this._dao);
+  DriftFolderRepository(this._dao, [this._pdfsDao]);
 
   static FolderItem _toItem(FolderEntry entry) {
     return FolderItem(
@@ -60,12 +63,20 @@ class DriftFolderRepository implements FolderRepository {
   }
 
   @override
+  Future<void> renameFolder(String id, String newName) async {
+    await _dao.renameFolder(id, newName);
+  }
+
+  @override
   Future<void> deleteFolder(String id) async {
+    if (_pdfsDao != null) {
+      await _pdfsDao.detachFromFolder(id);
+    }
     await _dao.deleteFolder(id);
   }
 }
 
 final folderRepositoryProvider = Provider<FolderRepository>((ref) {
   final db = ref.watch(appDatabaseProvider);
-  return DriftFolderRepository(db.foldersDao);
+  return DriftFolderRepository(db.foldersDao, db.pdfsDao);
 });

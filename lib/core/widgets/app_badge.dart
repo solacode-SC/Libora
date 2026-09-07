@@ -27,11 +27,13 @@ class AppBadge extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final bg = backgroundColor ??
+    final bg =
+        backgroundColor ??
         (isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle);
-    final border = borderColor ??
-        (isDark ? AppColors.darkBorder : AppColors.lightBorder);
-    final textCol = textColor ??
+    final border =
+        borderColor ?? (isDark ? AppColors.darkBorder : AppColors.lightBorder);
+    final textCol =
+        textColor ??
         (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary);
 
     final content = Container(
@@ -77,4 +79,3 @@ class AppBadge extends StatelessWidget {
     return content;
   }
 }
-

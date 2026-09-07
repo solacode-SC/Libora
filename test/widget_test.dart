@@ -1,12 +1,17 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:libora/app/app.dart';
 
+import 'helpers/test_database.dart';
+
 void main() {
   testWidgets('LiboraApp root widget smoke test', (WidgetTester tester) async {
-    await tester.pumpWidget(const ProviderScope(child: LiboraApp()));
+    final db = createTestDatabase();
+
+    await tester.pumpWidget(createTestApp(db));
     await tester.pumpAndSettle();
 
     expect(find.byType(LiboraApp), findsOneWidget);
+
+    await tearDownTestApp(tester, db);
   });
 }

@@ -173,6 +173,17 @@ class $PdfsTable extends Pdfs with TableInfo<$PdfsTable, PdfEntry> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _fileHashMeta = const VerificationMeta(
+    'fileHash',
+  );
+  @override
+  late final GeneratedColumn<String> fileHash = GeneratedColumn<String>(
+    'file_hash',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -190,6 +201,7 @@ class $PdfsTable extends Pdfs with TableInfo<$PdfsTable, PdfEntry> {
     createdAt,
     updatedAt,
     lastReadAt,
+    fileHash,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -306,6 +318,12 @@ class $PdfsTable extends Pdfs with TableInfo<$PdfsTable, PdfEntry> {
         ),
       );
     }
+    if (data.containsKey('file_hash')) {
+      context.handle(
+        _fileHashMeta,
+        fileHash.isAcceptableOrUnknown(data['file_hash']!, _fileHashMeta),
+      );
+    }
     return context;
   }
 
@@ -375,6 +393,10 @@ class $PdfsTable extends Pdfs with TableInfo<$PdfsTable, PdfEntry> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}last_read_at'],
       ),
+      fileHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}file_hash'],
+      ),
     );
   }
 
@@ -400,6 +422,7 @@ class PdfEntry extends DataClass implements Insertable<PdfEntry> {
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? lastReadAt;
+  final String? fileHash;
   const PdfEntry({
     required this.id,
     required this.title,
@@ -416,6 +439,7 @@ class PdfEntry extends DataClass implements Insertable<PdfEntry> {
     required this.createdAt,
     required this.updatedAt,
     this.lastReadAt,
+    this.fileHash,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -448,6 +472,9 @@ class PdfEntry extends DataClass implements Insertable<PdfEntry> {
     map['updated_at'] = Variable<DateTime>(updatedAt);
     if (!nullToAbsent || lastReadAt != null) {
       map['last_read_at'] = Variable<DateTime>(lastReadAt);
+    }
+    if (!nullToAbsent || fileHash != null) {
+      map['file_hash'] = Variable<String>(fileHash);
     }
     return map;
   }
@@ -483,6 +510,9 @@ class PdfEntry extends DataClass implements Insertable<PdfEntry> {
       lastReadAt: lastReadAt == null && nullToAbsent
           ? const Value.absent()
           : Value(lastReadAt),
+      fileHash: fileHash == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fileHash),
     );
   }
 
@@ -507,6 +537,7 @@ class PdfEntry extends DataClass implements Insertable<PdfEntry> {
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       lastReadAt: serializer.fromJson<DateTime?>(json['lastReadAt']),
+      fileHash: serializer.fromJson<String?>(json['fileHash']),
     );
   }
   @override
@@ -528,6 +559,7 @@ class PdfEntry extends DataClass implements Insertable<PdfEntry> {
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'lastReadAt': serializer.toJson<DateTime?>(lastReadAt),
+      'fileHash': serializer.toJson<String?>(fileHash),
     };
   }
 
@@ -547,6 +579,7 @@ class PdfEntry extends DataClass implements Insertable<PdfEntry> {
     DateTime? createdAt,
     DateTime? updatedAt,
     Value<DateTime?> lastReadAt = const Value.absent(),
+    Value<String?> fileHash = const Value.absent(),
   }) => PdfEntry(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -563,6 +596,7 @@ class PdfEntry extends DataClass implements Insertable<PdfEntry> {
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     lastReadAt: lastReadAt.present ? lastReadAt.value : this.lastReadAt,
+    fileHash: fileHash.present ? fileHash.value : this.fileHash,
   );
   PdfEntry copyWithCompanion(PdfsCompanion data) {
     return PdfEntry(
@@ -589,6 +623,7 @@ class PdfEntry extends DataClass implements Insertable<PdfEntry> {
       lastReadAt: data.lastReadAt.present
           ? data.lastReadAt.value
           : this.lastReadAt,
+      fileHash: data.fileHash.present ? data.fileHash.value : this.fileHash,
     );
   }
 
@@ -609,7 +644,8 @@ class PdfEntry extends DataClass implements Insertable<PdfEntry> {
           ..write('currentPage: $currentPage, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('lastReadAt: $lastReadAt')
+          ..write('lastReadAt: $lastReadAt, ')
+          ..write('fileHash: $fileHash')
           ..write(')'))
         .toString();
   }
@@ -631,6 +667,7 @@ class PdfEntry extends DataClass implements Insertable<PdfEntry> {
     createdAt,
     updatedAt,
     lastReadAt,
+    fileHash,
   );
   @override
   bool operator ==(Object other) =>
@@ -650,7 +687,8 @@ class PdfEntry extends DataClass implements Insertable<PdfEntry> {
           other.currentPage == this.currentPage &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
-          other.lastReadAt == this.lastReadAt);
+          other.lastReadAt == this.lastReadAt &&
+          other.fileHash == this.fileHash);
 }
 
 class PdfsCompanion extends UpdateCompanion<PdfEntry> {
@@ -669,6 +707,7 @@ class PdfsCompanion extends UpdateCompanion<PdfEntry> {
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<DateTime?> lastReadAt;
+  final Value<String?> fileHash;
   final Value<int> rowid;
   const PdfsCompanion({
     this.id = const Value.absent(),
@@ -686,6 +725,7 @@ class PdfsCompanion extends UpdateCompanion<PdfEntry> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.lastReadAt = const Value.absent(),
+    this.fileHash = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PdfsCompanion.insert({
@@ -704,6 +744,7 @@ class PdfsCompanion extends UpdateCompanion<PdfEntry> {
     required DateTime createdAt,
     required DateTime updatedAt,
     this.lastReadAt = const Value.absent(),
+    this.fileHash = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        title = Value(title),
@@ -726,6 +767,7 @@ class PdfsCompanion extends UpdateCompanion<PdfEntry> {
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<DateTime>? lastReadAt,
+    Expression<String>? fileHash,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -744,6 +786,7 @@ class PdfsCompanion extends UpdateCompanion<PdfEntry> {
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (lastReadAt != null) 'last_read_at': lastReadAt,
+      if (fileHash != null) 'file_hash': fileHash,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -764,6 +807,7 @@ class PdfsCompanion extends UpdateCompanion<PdfEntry> {
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<DateTime?>? lastReadAt,
+    Value<String?>? fileHash,
     Value<int>? rowid,
   }) {
     return PdfsCompanion(
@@ -782,6 +826,7 @@ class PdfsCompanion extends UpdateCompanion<PdfEntry> {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       lastReadAt: lastReadAt ?? this.lastReadAt,
+      fileHash: fileHash ?? this.fileHash,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -834,6 +879,9 @@ class PdfsCompanion extends UpdateCompanion<PdfEntry> {
     if (lastReadAt.present) {
       map['last_read_at'] = Variable<DateTime>(lastReadAt.value);
     }
+    if (fileHash.present) {
+      map['file_hash'] = Variable<String>(fileHash.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -858,6 +906,7 @@ class PdfsCompanion extends UpdateCompanion<PdfEntry> {
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('lastReadAt: $lastReadAt, ')
+          ..write('fileHash: $fileHash, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1621,6 +1670,7 @@ typedef $$PdfsTableCreateCompanionBuilder = PdfsCompanion Function({
   required DateTime createdAt,
   required DateTime updatedAt,
   Value<DateTime?> lastReadAt,
+  Value<String?> fileHash,
   Value<int> rowid,
 });
 typedef $$PdfsTableUpdateCompanionBuilder = PdfsCompanion Function({
@@ -1639,6 +1689,7 @@ typedef $$PdfsTableUpdateCompanionBuilder = PdfsCompanion Function({
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
   Value<DateTime?> lastReadAt,
+  Value<String?> fileHash,
   Value<int> rowid,
 });
 
@@ -1722,6 +1773,11 @@ class $$PdfsTableFilterComposer extends Composer<_$AppDatabase, $PdfsTable> {
 
   ColumnFilters<DateTime> get lastReadAt => $composableBuilder(
     column: $table.lastReadAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fileHash => $composableBuilder(
+    column: $table.fileHash,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1808,6 +1864,11 @@ class $$PdfsTableOrderingComposer extends Composer<_$AppDatabase, $PdfsTable> {
     column: $table.lastReadAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get fileHash => $composableBuilder(
+    column: $table.fileHash,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PdfsTableAnnotationComposer
@@ -1871,6 +1932,9 @@ class $$PdfsTableAnnotationComposer
     column: $table.lastReadAt,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get fileHash =>
+      $composableBuilder(column: $table.fileHash, builder: (column) => column);
 }
 
 class $$PdfsTableTableManager
@@ -1916,6 +1980,7 @@ class $$PdfsTableTableManager
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> lastReadAt = const Value.absent(),
+                Value<String?> fileHash = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PdfsCompanion(
                 id: id,
@@ -1933,6 +1998,7 @@ class $$PdfsTableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 lastReadAt: lastReadAt,
+                fileHash: fileHash,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1952,6 +2018,7 @@ class $$PdfsTableTableManager
                 required DateTime createdAt,
                 required DateTime updatedAt,
                 Value<DateTime?> lastReadAt = const Value.absent(),
+                Value<String?> fileHash = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PdfsCompanion.insert(
                 id: id,
@@ -1969,6 +2036,7 @@ class $$PdfsTableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 lastReadAt: lastReadAt,
+                fileHash: fileHash,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

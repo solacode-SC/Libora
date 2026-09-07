@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:libora/database/app_database.dart';
 import 'package:libora/features/bookmarks/data/repositories/bookmark_repository.dart';
@@ -88,6 +89,62 @@ void main() {
 
         final bookmarks = await bookmarkRepo.getBookmarksForPdf('non-existent');
         expect(bookmarks, isEmpty);
+      },
+    );
+
+    test('updates reading progress and lastReadAt via DAO', () async {
+      final now = DateTime(2026, 1, 1);
+      await db.pdfsDao.insertPdf(
+        PdfsCompanion.insert(
+          id: 'read-test-1',
+          title: 'Clean Code',
+          fileName: 'clean_code.pdf',
+          currentPage: const Value(1),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+
+      var pdf = await db.pdfsDao.getPdfById('read-test-1');
+      expect(pdf?.currentPage, equals(1));
+      expect(pdf?.lastReadAt, isNull);
+
+      await db.pdfsDao.updateReadingProgress('read-test-1', 127);
+      pdf = await db.pdfsDao.getPdfById('read-test-1');
+      expect(pdf?.currentPage, equals(127));
+      expect(pdf?.lastReadAt, isNotNull);
+
+      // Verify updating to 128
+      await db.pdfsDao.updateReadingProgress('read-test-1', 128);
+      pdf = await db.pdfsDao.getPdfById('read-test-1');
+      expect(pdf?.currentPage, equals(128));
+    });
+
+    test(
+      'PdfRepository saves, updates reading progress and restores page',
+      () async {
+        final now = DateTime.now();
+        final item = PdfItem(
+          id: 'repo-read-1',
+          title: 'Design Patterns',
+          fileName: 'design_patterns.pdf',
+          currentPage: 42,
+          pageCount: 395,
+          createdAt: now,
+          updatedAt: now,
+        );
+
+        await pdfRepo.savePdf(item);
+
+        var queried = await pdfRepo.getPdfById('repo-read-1');
+        expect(queried?.currentPage, equals(42));
+        expect(queried?.pageCount, equals(395));
+
+        // Advance reading position
+        await pdfRepo.updateReadingProgress('repo-read-1', 127);
+        queried = await pdfRepo.getPdfById('repo-read-1');
+        expect(queried?.currentPage, equals(127));
+        expect(queried?.lastReadAt, isNotNull);
       },
     );
   });
