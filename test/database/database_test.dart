@@ -147,5 +147,47 @@ void main() {
         expect(queried?.lastReadAt, isNotNull);
       },
     );
+
+    test('schema version is 3', () {
+      expect(db.schemaVersion, equals(3));
+    });
+
+    test(
+      'BookmarksDao supports note, updatedAt, and getBookmarkByPage',
+      () async {
+        final now = DateTime.now();
+        await db.pdfsDao.insertPdf(
+          PdfsCompanion.insert(
+            id: 'pdf-bm-dao-1',
+            title: 'Testing Bookmarks',
+            fileName: 'bookmarks.pdf',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+
+        await db.bookmarksDao.insertBookmark(
+          BookmarksCompanion.insert(
+            id: 'bm-dao-1',
+            pdfId: 'pdf-bm-dao-1',
+            pageNumber: 5,
+            label: const Value('Chapter 1'),
+            note: const Value('Crucial concept here'),
+            createdAt: now,
+            updatedAt: Value(now),
+          ),
+        );
+
+        final bm = await db.bookmarksDao.getBookmarkByPage('pdf-bm-dao-1', 5);
+        expect(bm, isNotNull);
+        expect(bm?.label, equals('Chapter 1'));
+        expect(bm?.note, equals('Crucial concept here'));
+
+        final count = await db.bookmarksDao.getBookmarkCountForPdf(
+          'pdf-bm-dao-1',
+        );
+        expect(count, equals(1));
+      },
+    );
   });
 }

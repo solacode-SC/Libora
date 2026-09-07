@@ -2,8 +2,11 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/utils/app_logger.dart';
+import '../../../bookmarks/data/repositories/bookmark_repository.dart';
+import '../../../bookmarks/domain/models/bookmark_item.dart';
 import '../../../library/data/repositories/pdf_repository.dart';
 import 'reader_state.dart';
 
@@ -13,6 +16,7 @@ import 'reader_state.dart';
 /// - Loading PDF metadata from [PdfRepository]
 /// - Verifying local file existence
 /// - Page change tracking with debounced persistence
+/// - Bookmarks and favorite toggling
 /// - Toolbar visibility toggle
 /// - Immediate persistence on reader exit
 class ReaderController extends Notifier<ReaderState> {
@@ -21,14 +25,26 @@ class ReaderController extends Notifier<ReaderState> {
   ReaderController(this.pdfId);
 
   late PdfRepository _pdfRepository;
+  late BookmarkRepository _bookmarkRepository;
   Timer? _debounceTimer;
+  StreamSubscription<List<BookmarkItem>>? _bookmarksSub;
+  final _uuid = const Uuid();
 
   @override
   ReaderState build() {
     _pdfRepository = ref.watch(pdfRepositoryProvider);
+    _bookmarkRepository = ref.watch(bookmarkRepositoryProvider);
 
     ref.onDispose(() {
       _debounceTimer?.cancel();
+      _bookmarksSub?.cancel();
+    });
+
+    _bookmarksSub?.cancel();
+    _bookmarksSub = _bookmarkRepository.watchBookmarksForPdf(pdfId).listen((
+      bms,
+    ) {
+      state = state.copyWith(bookmarks: bms);
     });
 
     // Trigger async loading
@@ -78,14 +94,11 @@ class ReaderController extends Notifier<ReaderState> {
         return;
       }
 
-      // Update lastReadAt on open
-      await _pdfRepository.updateReadingProgress(
-        pdf.id,
-        pdf.currentPage > 0 ? pdf.currentPage : 0,
-      );
-
       // Restore reading position (1-indexed for display, minimum 1)
       final restoredPage = pdf.currentPage > 0 ? pdf.currentPage : 1;
+
+      // Update lastReadAt and reading progress on open
+      await _pdfRepository.updateReadingProgress(pdf.id, restoredPage);
 
       state = ReaderState(
         status: ReaderStatus.ready,
@@ -99,6 +112,8 @@ class ReaderController extends Notifier<ReaderState> {
         currentPage: restoredPage,
         totalPages: pdf.pageCount ?? 0,
         isToolbarVisible: true,
+        isFavorite: pdf.isFavorite,
+        bookmarks: state.bookmarks,
         isFileAvailable: true,
         createdAt: pdf.createdAt,
         lastReadAt: DateTime.now(),
@@ -153,6 +168,111 @@ class ReaderController extends Notifier<ReaderState> {
           }
         });
       }
+    }
+  }
+
+  /// Toggles favorite status for this PDF.
+  Future<void> toggleFavorite() async {
+    final newFavorite = !state.isFavorite;
+    state = state.copyWith(isFavorite: newFavorite);
+
+    try {
+      await _pdfRepository.toggleFavorite(pdfId, newFavorite);
+      AppLogger.info(
+        'Toggled favorite for "${state.title}": $newFavorite',
+        tag: 'Reader',
+      );
+    } catch (e, stack) {
+      AppLogger.error(
+        'Failed to toggle favorite: $e',
+        tag: 'Reader',
+        error: e,
+        stackTrace: stack,
+      );
+      state = state.copyWith(isFavorite: !newFavorite);
+    }
+  }
+
+  /// Adds a bookmark for the specified page (or current page if omitted).
+  ///
+  /// Returns `true` if saved successfully, `false` if duplicate or invalid.
+  Future<bool> addBookmark({int? page, String? label, String? note}) async {
+    final pageToBookmark = page ?? state.currentPage;
+    if (pageToBookmark < 1 ||
+        (state.totalPages > 0 && pageToBookmark > state.totalPages)) {
+      return false;
+    }
+
+    // Check duplicate
+    if (state.bookmarkedPages.contains(pageToBookmark)) {
+      return false;
+    }
+
+    final bookmark = BookmarkItem(
+      id: _uuid.v4(),
+      pdfId: pdfId,
+      pageNumber: pageToBookmark,
+      label: label,
+      note: note,
+      createdAt: DateTime.now(),
+    );
+
+    try {
+      await _bookmarkRepository.addBookmark(bookmark);
+      AppLogger.info(
+        'Bookmarked page $pageToBookmark for "${state.title}"',
+        tag: 'Reader',
+      );
+      return true;
+    } catch (e, stack) {
+      AppLogger.error(
+        'Failed to add bookmark: $e',
+        tag: 'Reader',
+        error: e,
+        stackTrace: stack,
+      );
+      return false;
+    }
+  }
+
+  /// Updates an existing bookmark's label and note.
+  Future<void> updateBookmark(BookmarkItem bookmark) async {
+    try {
+      await _bookmarkRepository.updateBookmark(bookmark);
+      AppLogger.info(
+        'Updated bookmark for page ${bookmark.pageNumber}',
+        tag: 'Reader',
+      );
+    } catch (e, stack) {
+      AppLogger.error(
+        'Failed to update bookmark: $e',
+        tag: 'Reader',
+        error: e,
+        stackTrace: stack,
+      );
+    }
+  }
+
+  /// Deletes a bookmark by ID.
+  Future<void> deleteBookmark(String id) async {
+    try {
+      await _bookmarkRepository.deleteBookmark(id);
+      AppLogger.info('Deleted bookmark $id', tag: 'Reader');
+    } catch (e, stack) {
+      AppLogger.error(
+        'Failed to delete bookmark: $e',
+        tag: 'Reader',
+        error: e,
+        stackTrace: stack,
+      );
+    }
+  }
+
+  /// Deletes the bookmark for the current page if one exists.
+  Future<void> deleteCurrentPageBookmark() async {
+    final current = state.currentBookmark;
+    if (current != null) {
+      await deleteBookmark(current.id);
     }
   }
 

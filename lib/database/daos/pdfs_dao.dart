@@ -24,10 +24,42 @@ class PdfsDao extends DatabaseAccessor<AppDatabase> with _$PdfsDaoMixin {
   Stream<List<PdfEntry>> watchByFolder(String folderId) =>
       (select(pdfs)..where((t) => t.folderId.equals(folderId))).watch();
 
+  Stream<List<PdfEntry>> watchContinueReading({int limit = 6}) =>
+      (select(pdfs)
+            ..where(
+              (t) =>
+                  t.currentPage.isBiggerThanValue(0) & t.lastReadAt.isNotNull(),
+            )
+            ..orderBy([(t) => OrderingTerm.desc(t.lastReadAt)])
+            ..limit(limit))
+          .watch();
+
+  Stream<List<PdfEntry>> watchRecentlyAdded({int limit = 6}) =>
+      (select(pdfs)
+            ..orderBy([(t) => OrderingTerm.desc(t.createdAt)])
+            ..limit(limit))
+          .watch();
+
+  Future<List<PdfEntry>> searchPdfs(String query, {String? folderId}) {
+    final clean = '%${query.trim().toLowerCase()}%';
+    return (select(pdfs)
+          ..where((t) {
+            var expr =
+                t.title.lower().like(clean) | t.fileName.lower().like(clean);
+            if (folderId != null && folderId.isNotEmpty) {
+              expr = expr & t.folderId.equals(folderId);
+            }
+            return expr;
+          })
+          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+        .get();
+  }
+
   Future<PdfEntry?> getPdfById(String id) =>
       (select(pdfs)..where((t) => t.id.equals(id))).getSingleOrNull();
 
-  Future<int> insertPdf(PdfsCompanion pdf) => into(pdfs).insert(pdf);
+  Future<int> insertPdf(PdfsCompanion pdf) =>
+      into(pdfs).insertOnConflictUpdate(pdf);
 
   Future<bool> updatePdf(PdfsCompanion pdf) => update(pdfs).replace(pdf);
 
@@ -39,11 +71,11 @@ class PdfsDao extends DatabaseAccessor<AppDatabase> with _$PdfsDaoMixin {
         PdfsCompanion(isFavorite: Value(isFavorite)),
       );
 
-  Future<int> updateReadingProgress(String id, int page) =>
+  Future<int> updateReadingProgress(String id, int page, {DateTime? readAt}) =>
       (update(pdfs)..where((t) => t.id.equals(id))).write(
         PdfsCompanion(
           currentPage: Value(page),
-          lastReadAt: Value(DateTime.now()),
+          lastReadAt: Value(readAt ?? DateTime.now()),
         ),
       );
 

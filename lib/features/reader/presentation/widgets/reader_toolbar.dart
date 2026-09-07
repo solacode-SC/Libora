@@ -5,20 +5,23 @@ import 'package:pdfrx/pdfrx.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../bookmarks/presentation/widgets/bookmark_dialog.dart';
 import '../../../folders/data/repositories/folder_repository.dart';
+import '../controllers/reader_controller.dart';
 import '../controllers/reader_state.dart';
 import 'go_to_page_dialog.dart';
 import 'pdf_info_dialog.dart';
 
 /// Compact top toolbar for the PDF reader.
 ///
-/// Contains back button, title, page indicator, and more menu.
+/// Contains back button, title, page indicator, bookmark toggle, and more menu.
 class ReaderToolbar extends ConsumerWidget {
   final ReaderState readerState;
   final PdfViewerController? viewerController;
   final VoidCallback onBack;
   final VoidCallback? onFitWidth;
   final VoidCallback? onFitPage;
+  final VoidCallback? onOpenBookmarks;
 
   const ReaderToolbar({
     super.key,
@@ -27,6 +30,7 @@ class ReaderToolbar extends ConsumerWidget {
     required this.onBack,
     this.onFitWidth,
     this.onFitPage,
+    this.onOpenBookmarks,
   });
 
   @override
@@ -35,6 +39,8 @@ class ReaderToolbar extends ConsumerWidget {
     final isDark = theme.brightness == Brightness.dark;
     final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
     final bgColor = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+
+    final isBookmarked = readerState.isCurrentPageBookmarked;
 
     return Container(
       height: AppSpacing.topBarHeight,
@@ -95,6 +101,19 @@ class ReaderToolbar extends ConsumerWidget {
             ),
           const SizedBox(width: AppSpacing.xs),
 
+          // Bookmark quick action button
+          AppIconButton(
+            icon: isBookmarked
+                ? Icons.bookmark_rounded
+                : Icons.bookmark_border_rounded,
+            tooltip: isBookmarked
+                ? 'Bookmarked (Page ${readerState.currentPage}) — tap to edit'
+                : 'Bookmark page ${readerState.currentPage}',
+            onPressed: () => _handleBookmarkTap(context, ref),
+            size: 34,
+          ),
+          const SizedBox(width: AppSpacing.xxs),
+
           // More menu
           PopupMenuButton<String>(
             icon: Icon(
@@ -107,6 +126,37 @@ class ReaderToolbar extends ConsumerWidget {
             tooltip: 'More options',
             onSelected: (value) => _onMenuSelected(context, ref, value),
             itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'bookmarks',
+                child: Row(
+                  children: [
+                    const Icon(Icons.bookmarks_outlined, size: 16),
+                    const SizedBox(width: 8),
+                    Text('Bookmarks (${readerState.bookmarks.length})'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'favorite',
+                child: Row(
+                  children: [
+                    Icon(
+                      readerState.isFavorite
+                          ? Icons.star_rounded
+                          : Icons.star_outline_rounded,
+                      size: 16,
+                      color: readerState.isFavorite
+                          ? Colors.amber.shade700
+                          : null,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      readerState.isFavorite ? 'Remove Favorite' : 'Favorite',
+                    ),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
               if (onFitWidth != null)
                 const PopupMenuItem(
                   value: 'fit_width',
@@ -168,12 +218,53 @@ class ReaderToolbar extends ConsumerWidget {
     );
   }
 
+  Future<void> _handleBookmarkTap(BuildContext context, WidgetRef ref) async {
+    final controller = ref.read(
+      readerControllerProvider(readerState.pdfId!).notifier,
+    );
+    final existing = readerState.currentBookmark;
+
+    final result = await BookmarkDialog.show(
+      context,
+      pageNumber: readerState.currentPage,
+      initialLabel: existing?.label,
+      initialNote: existing?.note,
+      isEditing: existing != null,
+    );
+
+    if (result != null) {
+      if (result.isDelete && existing != null) {
+        await controller.deleteBookmark(existing.id);
+      } else if (existing != null) {
+        await controller.updateBookmark(
+          existing.copyWith(label: result.label, note: result.note),
+        );
+      } else {
+        await controller.addBookmark(
+          page: readerState.currentPage,
+          label: result.label,
+          note: result.note,
+        );
+      }
+    }
+  }
+
   Future<void> _onMenuSelected(
     BuildContext context,
     WidgetRef ref,
     String value,
   ) async {
     switch (value) {
+      case 'bookmarks':
+        onOpenBookmarks?.call();
+        break;
+      case 'favorite':
+        if (readerState.pdfId != null) {
+          await ref
+              .read(readerControllerProvider(readerState.pdfId!).notifier)
+              .toggleFavorite();
+        }
+        break;
       case 'fit_width':
         onFitWidth?.call();
         break;

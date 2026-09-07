@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
+import '../../../../core/utils/app_logger.dart';
 import '../../../../core/services/default_pdf_file_service.dart';
 import '../../../../core/services/default_pdf_thumbnail_service.dart';
 import '../../../../core/services/local_storage_service.dart';
@@ -43,6 +44,8 @@ class LibraryController extends Notifier<LibraryState> {
       state = state.copyWith(folders: folders);
     });
 
+    _loadInitialData();
+
     ref.onDispose(() {
       _pdfsSub?.cancel();
       _foldersSub?.cancel();
@@ -51,11 +54,34 @@ class LibraryController extends Notifier<LibraryState> {
     return const LibraryState(isLoading: true);
   }
 
+  /// Explicitly reloads all PDFs and folders directly from SQLite and updates state.
+  Future<void> refresh() async {
+    try {
+      final pdfs = await _pdfRepository.getAllPdfs();
+      final folders = await _folderRepository.getAllFolders();
+      state = state.copyWith(allPdfs: pdfs, folders: folders, isLoading: false);
+    } catch (e, stack) {
+      AppLogger.error(
+        'Failed to refresh library state: $e',
+        error: e,
+        stackTrace: stack,
+      );
+    }
+  }
+
+  Future<void> _loadInitialData() async {
+    await refresh();
+  }
+
   /// Prompts the user to pick one or more PDF files and imports them into Libora-managed storage.
   Future<void> importPdfs() async {
     try {
+      AppLogger.info('Launching file picker for PDF import...');
       final pickedFiles = await _fileService.pickPdfFiles();
-      if (pickedFiles.isEmpty) return;
+      if (pickedFiles.isEmpty) {
+        AppLogger.info('No PDF files selected (cancelled or empty).');
+        return;
+      }
 
       state = state.copyWith(
         isImporting: true,
@@ -66,18 +92,25 @@ class LibraryController extends Notifier<LibraryState> {
 
       final coversDir = await _storageService.getCoversDirectory();
       final duplicateNames = <String>[];
+      int importedCount = 0;
+      int invalidCount = 0;
 
       for (int i = 0; i < pickedFiles.length; i++) {
         final file = pickedFiles[i];
+        final fileName = p.basename(file.path);
+
         state = state.copyWith(
           importProgress: () =>
-              'Importing ${i + 1} of ${pickedFiles.length}: ${p.basename(file.path)}...',
+              'Importing ${i + 1} of ${pickedFiles.length}: $fileName...',
         );
 
         final isValid = await _fileService.validatePdf(file);
-        if (!isValid) continue;
+        if (!isValid) {
+          AppLogger.warning('Skipping invalid PDF: ${file.path}');
+          invalidCount++;
+          continue;
+        }
 
-        final fileName = p.basename(file.path);
         final fileSize = await file.length();
         final hash = await _fileService.computeFileHash(file);
 
@@ -89,6 +122,7 @@ class LibraryController extends Notifier<LibraryState> {
         );
 
         if (duplicate != null) {
+          AppLogger.info('Skipping duplicate PDF: $fileName');
           duplicateNames.add(fileName);
           continue;
         }
@@ -99,7 +133,18 @@ class LibraryController extends Notifier<LibraryState> {
           file,
           pdfId,
         );
-        final metadata = await _fileService.extractMetadata(managedFile);
+
+        if (!await managedFile.exists() || (await managedFile.length()) == 0) {
+          AppLogger.error(
+            'Failed to copy file to managed storage: ${file.path}',
+          );
+          continue;
+        }
+
+        final metadata = await _fileService.extractMetadata(
+          managedFile,
+          originalFileName: fileName,
+        );
 
         // Generate cover thumbnail
         final targetCoverPath = p.join(coversDir.path, '$pdfId.jpg');
@@ -127,6 +172,8 @@ class LibraryController extends Notifier<LibraryState> {
         );
 
         await _pdfRepository.savePdf(pdfItem);
+        importedCount++;
+        AppLogger.info('Successfully imported PDF: $fileName (id: $pdfId)');
       }
 
       String? notice;
@@ -136,14 +183,30 @@ class LibraryController extends Notifier<LibraryState> {
         } else {
           notice = '${duplicateNames.length} duplicate files were skipped.';
         }
+      } else if (invalidCount > 0) {
+        notice =
+            '$invalidCount file(s) could not be imported (not valid PDFs).';
+      } else if (importedCount > 0) {
+        if (importedCount == 1) {
+          notice = 'Imported 1 document successfully.';
+        } else {
+          notice = 'Imported $importedCount documents successfully.';
+        }
       }
 
+      // Explicitly reload all PDFs directly from SQLite to guarantee immediate synchronization
+      final latestPdfs = await _pdfRepository.getAllPdfs();
+
       state = state.copyWith(
+        allPdfs: latestPdfs,
         isImporting: false,
         importProgress: () => null,
         userNotice: () => notice,
+        selectedFilter: LibraryFilter.all,
+        searchQuery: '',
       );
-    } catch (e) {
+    } catch (e, stack) {
+      AppLogger.error('Failed to import PDFs: $e', error: e, stackTrace: stack);
       state = state.copyWith(
         isImporting: false,
         importProgress: () => null,
@@ -161,6 +224,7 @@ class LibraryController extends Notifier<LibraryState> {
         await _storageService.deleteManagedFile(pdf.coverPath);
       }
       await _pdfRepository.deletePdf(id);
+      await refresh();
     } catch (e) {
       state = state.copyWith(
         errorMessage: () => 'Failed to remove document: $e',
@@ -175,6 +239,7 @@ class LibraryController extends Notifier<LibraryState> {
       orElse: () => throw StateError('PDF not found'),
     );
     await _pdfRepository.toggleFavorite(id, !pdf.isFavorite);
+    await refresh();
   }
 
   /// Renames the user-facing title of a document.
@@ -182,11 +247,13 @@ class LibraryController extends Notifier<LibraryState> {
     final trimmed = newTitle.trim();
     if (trimmed.isEmpty) return;
     await _pdfRepository.updateTitle(id, trimmed);
+    await refresh();
   }
 
   /// Moves a document into a folder (or null for root).
   Future<void> moveToFolder(String id, String? folderId) async {
     await _pdfRepository.moveToFolder(id, folderId);
+    await refresh();
   }
 
   /// Sets the live search query string.

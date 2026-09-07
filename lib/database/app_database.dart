@@ -29,7 +29,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration {
@@ -41,6 +41,13 @@ class AppDatabase extends _$AppDatabase {
         if (from < 2) {
           await m.addColumn(pdfs, pdfs.fileHash);
         }
+        if (from < 3) {
+          await m.addColumn(bookmarks, bookmarks.note);
+          await m.addColumn(bookmarks, bookmarks.updatedAt);
+        }
+      },
+      beforeOpen: (details) async {
+        await customStatement('PRAGMA foreign_keys = ON');
       },
     );
   }

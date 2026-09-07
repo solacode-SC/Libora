@@ -1,3 +1,5 @@
+import '../../../bookmarks/domain/models/bookmark_item.dart';
+
 /// Status of the PDF reader.
 enum ReaderStatus { loading, ready, error }
 
@@ -16,6 +18,8 @@ class ReaderState {
   final int currentPage; // 1-indexed for display
   final int totalPages;
   final bool isToolbarVisible;
+  final bool isFavorite;
+  final List<BookmarkItem> bookmarks;
   final String? errorMessage;
   final bool isFileAvailable;
   final DateTime? createdAt;
@@ -33,16 +37,32 @@ class ReaderState {
     this.currentPage = 1,
     this.totalPages = 0,
     this.isToolbarVisible = true,
+    this.isFavorite = false,
+    this.bookmarks = const [],
     this.errorMessage,
     this.isFileAvailable = true,
     this.createdAt,
     this.lastReadAt,
   });
 
+  /// Set of bookmarked page numbers for O(1) in-memory lookup.
+  Set<int> get bookmarkedPages => bookmarks.map((b) => b.pageNumber).toSet();
+
+  /// Whether the active page is currently bookmarked.
+  bool get isCurrentPageBookmarked => bookmarkedPages.contains(currentPage);
+
+  /// The bookmark entity for the active page, if present.
+  BookmarkItem? get currentBookmark {
+    for (final b in bookmarks) {
+      if (b.pageNumber == currentPage) return b;
+    }
+    return null;
+  }
+
   /// Reading progress as a fraction between 0.0 and 1.0.
   double get progress {
     if (totalPages <= 0) return 0.0;
-    return currentPage / totalPages;
+    return (currentPage / totalPages).clamp(0.0, 1.0);
   }
 
   /// Reading progress as an integer percentage (0–100).
@@ -66,6 +86,8 @@ class ReaderState {
     int? currentPage,
     int? totalPages,
     bool? isToolbarVisible,
+    bool? isFavorite,
+    List<BookmarkItem>? bookmarks,
     String? Function()? errorMessage,
     bool? isFileAvailable,
     DateTime? createdAt,
@@ -83,6 +105,8 @@ class ReaderState {
       currentPage: currentPage ?? this.currentPage,
       totalPages: totalPages ?? this.totalPages,
       isToolbarVisible: isToolbarVisible ?? this.isToolbarVisible,
+      isFavorite: isFavorite ?? this.isFavorite,
+      bookmarks: bookmarks ?? this.bookmarks,
       errorMessage: errorMessage != null ? errorMessage() : this.errorMessage,
       isFileAvailable: isFileAvailable ?? this.isFileAvailable,
       createdAt: createdAt ?? this.createdAt,

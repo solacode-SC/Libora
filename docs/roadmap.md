@@ -47,12 +47,17 @@ This roadmap defines the iterative development plan for Libora from initial foun
 
 ---
 
-## Phase 3 — Search, Favorites, Bookmarks & Continue Reading
-- Instant real-time search across local PDF library titles.
-- Favorite toggling with persistent state in SQLite.
-- Favorites dedicated view with filter options.
-- In-reader page bookmarking with optional notes/labels.
-- Bookmarks management view and quick-jump navigation.
+## Phase 3 — Search, Favorites, Bookmarks & Continue Reading (Completed)
+- Drift Schema migration to v3 with `note`, `updatedAt`, foreign keys cascade, and unique `(pdfId, pageNumber)` constraint.
+- Continue Reading shelf on Home screen with cover thumbnails, title, page progress, and visual progress bar.
+- Auto-hiding Continue Reading section when no documents are in progress.
+- Favorites workflow: toggle favorites from library cards, reader menu, and dedicated `/favorites` screen.
+- In-reader bookmark creation and management (`B` shortcut, toolbar icon, custom label and note modal).
+- In-reader slide-out bookmark drawer with instant page jumping, editing, and deletion.
+- Dedicated `/bookmarks` screen aggregating all bookmarks across all documents with click-to-resume in reader.
+- SQLite-level search query supporting case-insensitive matching across titles and filenames.
+- Cascade deletion of bookmarks when a PDF is removed from the library.
+- Automated tests covering bookmarking, continue reading queries, and search logic.
 
 ---
 

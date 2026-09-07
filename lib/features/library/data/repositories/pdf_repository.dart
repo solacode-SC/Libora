@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../database/app_database.dart';
+import '../../../../database/daos/bookmarks_dao.dart';
 import '../../../../database/daos/pdfs_dao.dart';
 import '../../domain/models/pdf_item.dart';
 
@@ -10,11 +11,14 @@ abstract class PdfRepository {
   Future<List<PdfItem>> getAllPdfs();
   Stream<List<PdfItem>> watchFavorites();
   Stream<List<PdfItem>> watchByFolder(String folderId);
+  Stream<List<PdfItem>> watchContinueReading({int limit = 6});
+  Stream<List<PdfItem>> watchRecentlyAdded({int limit = 6});
+  Future<List<PdfItem>> searchPdfs(String query, {String? folderId});
   Future<PdfItem?> getPdfById(String id);
   Future<void> savePdf(PdfItem pdf);
   Future<void> deletePdf(String id);
   Future<void> toggleFavorite(String id, bool isFavorite);
-  Future<void> updateReadingProgress(String id, int page);
+  Future<void> updateReadingProgress(String id, int page, {DateTime? readAt});
   Future<PdfItem?> findDuplicate({
     String? hash,
     int? fileSize,
@@ -26,8 +30,9 @@ abstract class PdfRepository {
 
 class DriftPdfRepository implements PdfRepository {
   final PdfsDao _dao;
+  final BookmarksDao? _bookmarksDao;
 
-  DriftPdfRepository(this._dao);
+  DriftPdfRepository(this._dao, [this._bookmarksDao]);
 
   static PdfItem _toItem(PdfEntry entry) {
     return PdfItem(
@@ -76,6 +81,26 @@ class DriftPdfRepository implements PdfRepository {
   }
 
   @override
+  Stream<List<PdfItem>> watchContinueReading({int limit = 6}) {
+    return _dao
+        .watchContinueReading(limit: limit)
+        .map((entries) => entries.map(_toItem).toList());
+  }
+
+  @override
+  Stream<List<PdfItem>> watchRecentlyAdded({int limit = 6}) {
+    return _dao
+        .watchRecentlyAdded(limit: limit)
+        .map((entries) => entries.map(_toItem).toList());
+  }
+
+  @override
+  Future<List<PdfItem>> searchPdfs(String query, {String? folderId}) async {
+    final entries = await _dao.searchPdfs(query, folderId: folderId);
+    return entries.map(_toItem).toList();
+  }
+
+  @override
   Future<PdfItem?> getPdfById(String id) async {
     final entry = await _dao.getPdfById(id);
     return entry != null ? _toItem(entry) : null;
@@ -106,6 +131,9 @@ class DriftPdfRepository implements PdfRepository {
 
   @override
   Future<void> deletePdf(String id) async {
+    if (_bookmarksDao != null) {
+      await _bookmarksDao.deleteBookmarksForPdf(id);
+    }
     await _dao.deletePdf(id);
   }
 
@@ -115,8 +143,12 @@ class DriftPdfRepository implements PdfRepository {
   }
 
   @override
-  Future<void> updateReadingProgress(String id, int page) async {
-    await _dao.updateReadingProgress(id, page);
+  Future<void> updateReadingProgress(
+    String id,
+    int page, {
+    DateTime? readAt,
+  }) async {
+    await _dao.updateReadingProgress(id, page, readAt: readAt);
   }
 
   @override
@@ -146,5 +178,5 @@ class DriftPdfRepository implements PdfRepository {
 
 final pdfRepositoryProvider = Provider<PdfRepository>((ref) {
   final db = ref.watch(appDatabaseProvider);
-  return DriftPdfRepository(db.pdfsDao);
+  return DriftPdfRepository(db.pdfsDao, db.bookmarksDao);
 });

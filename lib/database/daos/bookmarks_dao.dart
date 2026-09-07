@@ -26,9 +26,30 @@ class BookmarksDao extends DatabaseAccessor<AppDatabase>
     bookmarks,
   )..orderBy([(t) => OrderingTerm.desc(t.createdAt)])).watch();
 
+  Future<BookmarkEntry?> getBookmarkByPage(String pdfId, int pageNumber) =>
+      (select(bookmarks)..where(
+            (t) => t.pdfId.equals(pdfId) & t.pageNumber.equals(pageNumber),
+          ))
+          .getSingleOrNull();
+
+  Future<int> getBookmarkCountForPdf(String pdfId) async {
+    final count = bookmarks.id.count();
+    final query = selectOnly(bookmarks)
+      ..addColumns([count])
+      ..where(bookmarks.pdfId.equals(pdfId));
+    final result = await query.getSingle();
+    return result.read(count) ?? 0;
+  }
+
   Future<int> insertBookmark(BookmarksCompanion bookmark) =>
       into(bookmarks).insert(bookmark);
 
+  Future<bool> updateBookmark(BookmarksCompanion bookmark) =>
+      update(bookmarks).replace(bookmark);
+
   Future<int> deleteBookmark(String id) =>
       (delete(bookmarks)..where((t) => t.id.equals(id))).go();
+
+  Future<int> deleteBookmarksForPdf(String pdfId) =>
+      (delete(bookmarks)..where((t) => t.pdfId.equals(pdfId))).go();
 }

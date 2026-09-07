@@ -7,8 +7,10 @@ import 'package:pdfrx/pdfrx.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/utils/app_logger.dart';
+import '../../../bookmarks/presentation/widgets/bookmark_dialog.dart';
 import '../controllers/reader_controller.dart';
 import '../controllers/reader_state.dart';
+import '../widgets/reader_bookmarks_panel.dart';
 import '../widgets/reader_bottom_bar.dart';
 import '../widgets/reader_error_widget.dart';
 import '../widgets/reader_loading_widget.dart';
@@ -17,8 +19,8 @@ import '../widgets/reader_toolbar.dart';
 /// Fullscreen PDF reader screen.
 ///
 /// Handles rendering via pdfrx, smooth scrolling, zoom controls,
-/// page navigation, toolbar toggling, keyboard shortcuts, and
-/// persistent reading position.
+/// page navigation, toolbar toggling, keyboard shortcuts, bookmarks,
+/// and persistent reading position.
 class ReaderScreen extends ConsumerStatefulWidget {
   final String pdfId;
 
@@ -86,6 +88,53 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     _viewerController.setZoom(_viewerController.centerPosition, 1.0);
   }
 
+  void _openBookmarksPanel() {
+    final readerState = ref.read(readerControllerProvider(widget.pdfId));
+    final controller = ref.read(
+      readerControllerProvider(widget.pdfId).notifier,
+    );
+
+    ReaderBookmarksPanel.show(
+      context,
+      bookmarks: readerState.bookmarks,
+      onSelectPage: (page) => _viewerController.goToPage(pageNumber: page),
+      onEditBookmark: (bm) => controller.updateBookmark(bm),
+      onDeleteBookmark: (id) => controller.deleteBookmark(id),
+    );
+  }
+
+  Future<void> _handleBookmarkShortcut() async {
+    final readerState = ref.read(readerControllerProvider(widget.pdfId));
+    final controller = ref.read(
+      readerControllerProvider(widget.pdfId).notifier,
+    );
+    final existing = readerState.currentBookmark;
+
+    final result = await BookmarkDialog.show(
+      context,
+      pageNumber: readerState.currentPage,
+      initialLabel: existing?.label,
+      initialNote: existing?.note,
+      isEditing: existing != null,
+    );
+
+    if (result != null) {
+      if (result.isDelete && existing != null) {
+        await controller.deleteBookmark(existing.id);
+      } else if (existing != null) {
+        await controller.updateBookmark(
+          existing.copyWith(label: result.label, note: result.note),
+        );
+      } else {
+        await controller.addBookmark(
+          page: readerState.currentPage,
+          label: result.label,
+          note: result.note,
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -127,6 +176,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       child: CallbackShortcuts(
         bindings: {
           const SingleActivator(LogicalKeyboardKey.escape): _handleBack,
+          const SingleActivator(LogicalKeyboardKey.keyB):
+              _handleBookmarkShortcut,
           const SingleActivator(LogicalKeyboardKey.equal): () =>
               _viewerController.zoomUp(),
           const SingleActivator(LogicalKeyboardKey.add): () =>
@@ -184,6 +235,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                         onKey: (params, key, isRealKeyPress) {
                           if (key == LogicalKeyboardKey.escape) {
                             _handleBack();
+                            return true;
+                          }
+                          if (key == LogicalKeyboardKey.keyB) {
+                            _handleBookmarkShortcut();
                             return true;
                           }
                           if (key == LogicalKeyboardKey.equal ||
@@ -262,6 +317,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                         onBack: _handleBack,
                         onFitWidth: _fitWidth,
                         onFitPage: _fitPage,
+                        onOpenBookmarks: _openBookmarksPanel,
                       ),
                     ),
                   ),

@@ -36,7 +36,13 @@ class DefaultPdfThumbnailService implements PdfThumbnailService {
         return null;
       }
 
-      final image = pageImage.createImageNF();
+      final image = img.Image.fromBytes(
+        width: pageImage.width,
+        height: pageImage.height,
+        bytes: pageImage.pixels.buffer,
+        order: img.ChannelOrder.bgra,
+        numChannels: 4,
+      );
       pageImage.dispose();
       doc.dispose();
 

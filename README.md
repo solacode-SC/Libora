@@ -15,6 +15,14 @@ Libora is designed like a personal bookshelf: your local device contains only th
 
 ## Features
 
+### Search, Favorites, Bookmarks & Continue Reading (Phase 3)
+- **Continue Reading Section**: Prominent visual shelf on the Home screen showing in-progress documents (`currentPage > 0`), progress bar, and percentage. Automatically hides when empty.
+- **In-Reader Bookmarks**: Quick bookmark toggle (`B` shortcut and toolbar button) to mark pages with custom labels and notes. Enforces single bookmark per page.
+- **Bookmark Manager**: Dedicated `/bookmarks` screen listing all saved bookmarks with direct jump into the reader at the target page.
+- **Favorites Workflow**: Instant star/unstar toggle across library cards, reader actions, and dedicated `/favorites` screen.
+- **Global & Local Search**: Fast SQLite-level queries indexing document titles and file names with case-insensitive matching.
+- **Drift Schema v3**: Relational integrity with foreign key cascades, notes support, and unique page constraints.
+
 ### PDF Reader (Phase 2)
 - **Dedicated Reader Route**: Decoupled `/reader/:pdfId` route loading documents through `PdfRepository`.
 - **Native PDF Rendering**: Hardware-accelerated smooth vertical scrolling and zoom powered by `pdfrx`.

@@ -161,7 +161,7 @@ class RemotePdfItem {
 
 ---
 
-## 6. Database Schema (Drift / SQLite — Schema v2)
+## 6. Database Schema (Drift / SQLite — Schema v3)
 
 ### `pdfs` Table
 - `id` (TEXT, Primary Key)
@@ -190,10 +190,13 @@ class RemotePdfItem {
 
 ### `bookmarks` Table
 - `id` (TEXT, Primary Key)
-- `pdf_id` (TEXT, NOT NULL, Foreign Key -> `pdfs.id`)
+- `pdf_id` (TEXT, NOT NULL, Foreign Key -> `pdfs.id`, `ON DELETE CASCADE`)
 - `page_number` (INTEGER, NOT NULL)
 - `label` (TEXT, NULLABLE)
+- `note` (TEXT, NULLABLE)
 - `created_at` (DATETIME, NOT NULL)
+- `updated_at` (DATETIME, NULLABLE)
+- **Constraint**: Unique on `(pdf_id, page_number)` — guarantees 1 bookmark per page per PDF.
 
 ---
 
@@ -262,11 +265,39 @@ The reader provides a full-featured, offline, and visually quiet reading experie
 - In-document text selection and copy
 - Full-text search within PDF contents
 - In-document highlights and annotations
-- In-reader bookmark creation (scheduled for Phase 3)
 
 ---
 
-## 10. Future GitHub Integration
+## 10. Search, Favorites, Bookmarks & Continue Reading (Phase 3)
+
+### Continue Reading Shelf
+- **Query & Filter**: `watchContinueReading({int limit = 6})` streams records matching `currentPage > 0 AND lastReadAt IS NOT NULL`, ordered by `lastReadAt DESC`.
+- **Dashboard Presentation**: Featured prominently at the top of the Home dashboard with custom cover thumbnail, document title, `Page X of Y`, visual progress bar, and percentage indicator.
+- **Empty State**: Intentionally concealed completely if no documents are currently in progress to avoid UI clutter.
+
+### In-Reader Bookmarks & Bookmark Manager
+- **Domain Model**: `BookmarkItem` (`id`, `pdfId`, `pageNumber`, `label`, `note`, `createdAt`, `updatedAt`).
+- **Database Rules**: Enforces SQLite table-level unique constraint on `(pdf_id, page_number)`. Cascades deletions on `pdf_id` foreign key.
+- **Quick Action & Dialog**:
+  - Star icon (`Icons.bookmark_outline` / `Icons.bookmark`) in `ReaderToolbar` and `B` keyboard shortcut.
+  - Tapping opens `BookmarkDialog` to configure custom label and note.
+  - In-reader `ReaderBookmarksPanel` slides in to list all bookmarks for current PDF with single-click jump to page, inline editing, and deletion.
+- **Global Bookmark Manager**:
+  - Route `/bookmarks` lists all saved bookmarks across all PDFs.
+  - Displays document title, page badge, creation/update date, and note preview.
+  - Tapping any bookmark opens the reader directly at the bookmarked page via GoRouter path `/reader/:pdfId?page=:pageNumber`.
+
+### Favorites Workflow
+- **Reusability**: Leverages existing `isFavorite` column in `pdfs` table.
+- **Interactivity**: Star toggle available directly on library cards, within the reader toolbar action menu, and inside the dedicated `/favorites` screen.
+
+### Global & Local Search
+- **SQLite Optimization**: `searchPdfs(query, {folderId})` uses SQL `LIKE` with case-insensitive lowercase matching on `title` and `fileName`.
+- **Filtering**: Combines with folder scopes when browsing inside collections.
+
+---
+
+## 11. Future GitHub Integration
 
 A connected GitHub repository adheres to the following structural convention:
 

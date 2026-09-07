@@ -9,7 +9,7 @@ abstract class PdfFileService {
   Future<bool> validatePdf(File file);
 
   /// Extracts basic metadata (page count, title, file size) from a PDF file.
-  Future<PdfMetadata> extractMetadata(File file);
+  Future<PdfMetadata> extractMetadata(File file, {String? originalFileName});
 }
 
 class PdfMetadata {

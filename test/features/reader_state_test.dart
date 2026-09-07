@@ -93,39 +93,44 @@ void main() {
       }
     });
 
-    test('restores previously saved reading position (lastPage = 127)', () async {
-      final now = DateTime.now();
-      final item = PdfItem(
-        id: 'pdf-restore-test',
-        title: 'Clean Code',
-        fileName: 'clean_code.pdf',
-        localPath: samplePdfFile.path,
-        currentPage: 127,
-        pageCount: 464,
-        createdAt: now,
-        updatedAt: now,
-      );
-      await pdfRepo.savePdf(item);
+    test(
+      'restores previously saved reading position (lastPage = 127)',
+      () async {
+        final now = DateTime.now();
+        final item = PdfItem(
+          id: 'pdf-restore-test',
+          title: 'Clean Code',
+          fileName: 'clean_code.pdf',
+          localPath: samplePdfFile.path,
+          currentPage: 127,
+          pageCount: 464,
+          createdAt: now,
+          updatedAt: now,
+        );
+        await pdfRepo.savePdf(item);
 
-      final container = ProviderContainer(
-        overrides: [
-          appDatabaseProvider.overrideWithValue(db),
-          pdfRepositoryProvider.overrideWithValue(pdfRepo),
-        ],
-      );
-      addTearDown(container.dispose);
+        final container = ProviderContainer(
+          overrides: [
+            appDatabaseProvider.overrideWithValue(db),
+            pdfRepositoryProvider.overrideWithValue(pdfRepo),
+          ],
+        );
+        addTearDown(container.dispose);
 
-      // Read controller and wait for async loading
-      container.read(readerControllerProvider('pdf-restore-test'));
-      // Allow async load to complete
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+        // Read controller and wait for async loading
+        container.read(readerControllerProvider('pdf-restore-test'));
+        // Allow async load to complete
+        await Future<void>.delayed(const Duration(milliseconds: 50));
 
-      final state = container.read(readerControllerProvider('pdf-restore-test'));
-      expect(state.status, equals(ReaderStatus.ready));
-      expect(state.currentPage, equals(127));
-      expect(state.totalPages, equals(464));
-      expect(state.progressPercent, equals(27));
-    });
+        final state = container.read(
+          readerControllerProvider('pdf-restore-test'),
+        );
+        expect(state.status, equals(ReaderStatus.ready));
+        expect(state.currentPage, equals(127));
+        expect(state.totalPages, equals(464));
+        expect(state.progressPercent, equals(27));
+      },
+    );
 
     test('missing file produces controlled error state with isFileAvailable = false', () async {
       final now = DateTime.now();
@@ -150,7 +155,9 @@ void main() {
       container.read(readerControllerProvider('pdf-missing-file'));
       await Future<void>.delayed(const Duration(milliseconds: 50));
 
-      final state = container.read(readerControllerProvider('pdf-missing-file'));
+      final state = container.read(
+        readerControllerProvider('pdf-missing-file'),
+      );
       expect(state.status, equals(ReaderStatus.error));
       expect(state.isFileAvailable, isFalse);
       expect(state.errorMessage, contains('no longer available'));
@@ -193,36 +200,38 @@ void main() {
       expect(updated?.lastReadAt, isNotNull);
     });
 
-    test('deletePdf cleans up entry from repository on missing file removal', () async {
-      final now = DateTime.now();
-      final item = PdfItem(
-        id: 'pdf-delete-test',
-        title: 'Delete Me',
-        fileName: 'delete.pdf',
-        localPath: '/tmp/nonexistent.pdf',
-        createdAt: now,
-        updatedAt: now,
-      );
-      await pdfRepo.savePdf(item);
+    test(
+      'deletePdf cleans up entry from repository on missing file removal',
+      () async {
+        final now = DateTime.now();
+        final item = PdfItem(
+          id: 'pdf-delete-test',
+          title: 'Delete Me',
+          fileName: 'delete.pdf',
+          localPath: '/tmp/nonexistent.pdf',
+          createdAt: now,
+          updatedAt: now,
+        );
+        await pdfRepo.savePdf(item);
 
-      final container = ProviderContainer(
-        overrides: [
-          appDatabaseProvider.overrideWithValue(db),
-          pdfRepositoryProvider.overrideWithValue(pdfRepo),
-        ],
-      );
-      addTearDown(container.dispose);
+        final container = ProviderContainer(
+          overrides: [
+            appDatabaseProvider.overrideWithValue(db),
+            pdfRepositoryProvider.overrideWithValue(pdfRepo),
+          ],
+        );
+        addTearDown(container.dispose);
 
-      final controller = container.read(
-        readerControllerProvider('pdf-delete-test').notifier,
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+        final controller = container.read(
+          readerControllerProvider('pdf-delete-test').notifier,
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 50));
 
-      await controller.deletePdf();
+        await controller.deletePdf();
 
-      final queried = await pdfRepo.getPdfById('pdf-delete-test');
-      expect(queried, isNull);
-    });
+        final queried = await pdfRepo.getPdfById('pdf-delete-test');
+        expect(queried, isNull);
+      },
+    );
   });
 }
-

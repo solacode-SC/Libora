@@ -1296,6 +1296,9 @@ class $BookmarksTable extends Bookmarks
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES pdfs (id) ON DELETE CASCADE',
+    ),
   );
   static const VerificationMeta _pageNumberMeta = const VerificationMeta(
     'pageNumber',
@@ -1317,6 +1320,15 @@ class $BookmarksTable extends Bookmarks
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _noteMeta = const VerificationMeta('note');
+  @override
+  late final GeneratedColumn<String> note = GeneratedColumn<String>(
+    'note',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -1328,13 +1340,26 @@ class $BookmarksTable extends Bookmarks
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
     pdfId,
     pageNumber,
     label,
+    note,
     createdAt,
+    updatedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1375,6 +1400,12 @@ class $BookmarksTable extends Bookmarks
         label.isAcceptableOrUnknown(data['label']!, _labelMeta),
       );
     }
+    if (data.containsKey('note')) {
+      context.handle(
+        _noteMeta,
+        note.isAcceptableOrUnknown(data['note']!, _noteMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -1383,11 +1414,21 @@ class $BookmarksTable extends Bookmarks
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
     return context;
   }
 
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {pdfId, pageNumber},
+  ];
   @override
   BookmarkEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -1408,10 +1449,18 @@ class $BookmarksTable extends Bookmarks
         DriftSqlType.string,
         data['${effectivePrefix}label'],
       ),
+      note: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
     );
   }
 
@@ -1426,13 +1475,17 @@ class BookmarkEntry extends DataClass implements Insertable<BookmarkEntry> {
   final String pdfId;
   final int pageNumber;
   final String? label;
+  final String? note;
   final DateTime createdAt;
+  final DateTime? updatedAt;
   const BookmarkEntry({
     required this.id,
     required this.pdfId,
     required this.pageNumber,
     this.label,
+    this.note,
     required this.createdAt,
+    this.updatedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1443,7 +1496,13 @@ class BookmarkEntry extends DataClass implements Insertable<BookmarkEntry> {
     if (!nullToAbsent || label != null) {
       map['label'] = Variable<String>(label);
     }
+    if (!nullToAbsent || note != null) {
+      map['note'] = Variable<String>(note);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
     return map;
   }
 
@@ -1455,7 +1514,11 @@ class BookmarkEntry extends DataClass implements Insertable<BookmarkEntry> {
       label: label == null && nullToAbsent
           ? const Value.absent()
           : Value(label),
+      note: note == null && nullToAbsent ? const Value.absent() : Value(note),
       createdAt: Value(createdAt),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
     );
   }
 
@@ -1469,7 +1532,9 @@ class BookmarkEntry extends DataClass implements Insertable<BookmarkEntry> {
       pdfId: serializer.fromJson<String>(json['pdfId']),
       pageNumber: serializer.fromJson<int>(json['pageNumber']),
       label: serializer.fromJson<String?>(json['label']),
+      note: serializer.fromJson<String?>(json['note']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
     );
   }
   @override
@@ -1480,7 +1545,9 @@ class BookmarkEntry extends DataClass implements Insertable<BookmarkEntry> {
       'pdfId': serializer.toJson<String>(pdfId),
       'pageNumber': serializer.toJson<int>(pageNumber),
       'label': serializer.toJson<String?>(label),
+      'note': serializer.toJson<String?>(note),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
     };
   }
 
@@ -1489,13 +1556,17 @@ class BookmarkEntry extends DataClass implements Insertable<BookmarkEntry> {
     String? pdfId,
     int? pageNumber,
     Value<String?> label = const Value.absent(),
+    Value<String?> note = const Value.absent(),
     DateTime? createdAt,
+    Value<DateTime?> updatedAt = const Value.absent(),
   }) => BookmarkEntry(
     id: id ?? this.id,
     pdfId: pdfId ?? this.pdfId,
     pageNumber: pageNumber ?? this.pageNumber,
     label: label.present ? label.value : this.label,
+    note: note.present ? note.value : this.note,
     createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
   );
   BookmarkEntry copyWithCompanion(BookmarksCompanion data) {
     return BookmarkEntry(
@@ -1505,7 +1576,9 @@ class BookmarkEntry extends DataClass implements Insertable<BookmarkEntry> {
           ? data.pageNumber.value
           : this.pageNumber,
       label: data.label.present ? data.label.value : this.label,
+      note: data.note.present ? data.note.value : this.note,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
 
@@ -1516,13 +1589,16 @@ class BookmarkEntry extends DataClass implements Insertable<BookmarkEntry> {
           ..write('pdfId: $pdfId, ')
           ..write('pageNumber: $pageNumber, ')
           ..write('label: $label, ')
-          ..write('createdAt: $createdAt')
+          ..write('note: $note, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, pdfId, pageNumber, label, createdAt);
+  int get hashCode =>
+      Object.hash(id, pdfId, pageNumber, label, note, createdAt, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1531,7 +1607,9 @@ class BookmarkEntry extends DataClass implements Insertable<BookmarkEntry> {
           other.pdfId == this.pdfId &&
           other.pageNumber == this.pageNumber &&
           other.label == this.label &&
-          other.createdAt == this.createdAt);
+          other.note == this.note &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
 }
 
 class BookmarksCompanion extends UpdateCompanion<BookmarkEntry> {
@@ -1539,14 +1617,18 @@ class BookmarksCompanion extends UpdateCompanion<BookmarkEntry> {
   final Value<String> pdfId;
   final Value<int> pageNumber;
   final Value<String?> label;
+  final Value<String?> note;
   final Value<DateTime> createdAt;
+  final Value<DateTime?> updatedAt;
   final Value<int> rowid;
   const BookmarksCompanion({
     this.id = const Value.absent(),
     this.pdfId = const Value.absent(),
     this.pageNumber = const Value.absent(),
     this.label = const Value.absent(),
+    this.note = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   BookmarksCompanion.insert({
@@ -1554,7 +1636,9 @@ class BookmarksCompanion extends UpdateCompanion<BookmarkEntry> {
     required String pdfId,
     required int pageNumber,
     this.label = const Value.absent(),
+    this.note = const Value.absent(),
     required DateTime createdAt,
+    this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        pdfId = Value(pdfId),
@@ -1565,7 +1649,9 @@ class BookmarksCompanion extends UpdateCompanion<BookmarkEntry> {
     Expression<String>? pdfId,
     Expression<int>? pageNumber,
     Expression<String>? label,
+    Expression<String>? note,
     Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1573,7 +1659,9 @@ class BookmarksCompanion extends UpdateCompanion<BookmarkEntry> {
       if (pdfId != null) 'pdf_id': pdfId,
       if (pageNumber != null) 'page_number': pageNumber,
       if (label != null) 'label': label,
+      if (note != null) 'note': note,
       if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1583,7 +1671,9 @@ class BookmarksCompanion extends UpdateCompanion<BookmarkEntry> {
     Value<String>? pdfId,
     Value<int>? pageNumber,
     Value<String?>? label,
+    Value<String?>? note,
     Value<DateTime>? createdAt,
+    Value<DateTime?>? updatedAt,
     Value<int>? rowid,
   }) {
     return BookmarksCompanion(
@@ -1591,7 +1681,9 @@ class BookmarksCompanion extends UpdateCompanion<BookmarkEntry> {
       pdfId: pdfId ?? this.pdfId,
       pageNumber: pageNumber ?? this.pageNumber,
       label: label ?? this.label,
+      note: note ?? this.note,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1611,8 +1703,14 @@ class BookmarksCompanion extends UpdateCompanion<BookmarkEntry> {
     if (label.present) {
       map['label'] = Variable<String>(label.value);
     }
+    if (note.present) {
+      map['note'] = Variable<String>(note.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -1627,7 +1725,9 @@ class BookmarksCompanion extends UpdateCompanion<BookmarkEntry> {
           ..write('pdfId: $pdfId, ')
           ..write('pageNumber: $pageNumber, ')
           ..write('label: $label, ')
+          ..write('note: $note, ')
           ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1652,6 +1752,16 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     folders,
     bookmarks,
   ];
+  @override
+  StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'pdfs',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('bookmarks', kind: UpdateKind.delete)],
+    ),
+  ]);
 }
 
 typedef $$PdfsTableCreateCompanionBuilder = PdfsCompanion Function({
@@ -1692,6 +1802,29 @@ typedef $$PdfsTableUpdateCompanionBuilder = PdfsCompanion Function({
   Value<String?> fileHash,
   Value<int> rowid,
 });
+
+final class $$PdfsTableReferences
+    extends BaseReferences<_$AppDatabase, $PdfsTable, PdfEntry> {
+  $$PdfsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$BookmarksTable, List<BookmarkEntry>>
+  _bookmarksRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.bookmarks,
+    aliasName: 'pdfs__id__bookmarks__pdf_id',
+  );
+
+  $$BookmarksTableProcessedTableManager get bookmarksRefs {
+    final manager = $$BookmarksTableTableManager(
+      $_db,
+      $_db.bookmarks,
+    ).filter((f) => f.pdfId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_bookmarksRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
 
 class $$PdfsTableFilterComposer extends Composer<_$AppDatabase, $PdfsTable> {
   $$PdfsTableFilterComposer({
@@ -1780,6 +1913,31 @@ class $$PdfsTableFilterComposer extends Composer<_$AppDatabase, $PdfsTable> {
     column: $table.fileHash,
     builder: (column) => ColumnFilters(column),
   );
+
+  Expression<bool> bookmarksRefs(
+    Expression<bool> Function($$BookmarksTableFilterComposer f) f,
+  ) {
+    final $$BookmarksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.bookmarks,
+      getReferencedColumn: (t) => t.pdfId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BookmarksTableFilterComposer(
+            $db: $db,
+            $table: $db.bookmarks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$PdfsTableOrderingComposer extends Composer<_$AppDatabase, $PdfsTable> {
@@ -1935,6 +2093,31 @@ class $$PdfsTableAnnotationComposer
 
   GeneratedColumn<String> get fileHash =>
       $composableBuilder(column: $table.fileHash, builder: (column) => column);
+
+  Expression<T> bookmarksRefs<T extends Object>(
+    Expression<T> Function($$BookmarksTableAnnotationComposer a) f,
+  ) {
+    final $$BookmarksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.bookmarks,
+      getReferencedColumn: (t) => t.pdfId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$BookmarksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.bookmarks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$PdfsTableTableManager
@@ -1948,9 +2131,9 @@ class $$PdfsTableTableManager
           $$PdfsTableAnnotationComposer,
           $$PdfsTableCreateCompanionBuilder,
           $$PdfsTableUpdateCompanionBuilder,
-          (PdfEntry, BaseReferences<_$AppDatabase, $PdfsTable, PdfEntry>),
+          (PdfEntry, $$PdfsTableReferences),
           PdfEntry,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool bookmarksRefs})
         > {
   $$PdfsTableTableManager(_$AppDatabase db, $PdfsTable table)
     : super(
@@ -2043,15 +2226,36 @@ class $$PdfsTableTableManager
               .map(
                 (e) => (
                   e.readTable<$PdfsTable, PdfEntry>(table),
-                  BaseReferences<_$AppDatabase, $PdfsTable, PdfEntry>(
-                    db,
-                    table,
-                    e,
-                  ),
+                  $$PdfsTableReferences(db, table, e),
                 ),
               )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({bookmarksRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [if (bookmarksRefs) db.bookmarks],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (bookmarksRefs)
+                    await $_getPrefetchedData<
+                      PdfEntry,
+                      $PdfsTable,
+                      BookmarkEntry
+                    >(
+                      currentTable: table,
+                      referencedTable: $$PdfsTableReferences
+                          ._bookmarksRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$PdfsTableReferences(db, table, p0).bookmarksRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.pdfId == item.id),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
         ),
       );
 }
@@ -2066,9 +2270,9 @@ typedef $$PdfsTableProcessedTableManager =
       $$PdfsTableAnnotationComposer,
       $$PdfsTableCreateCompanionBuilder,
       $$PdfsTableUpdateCompanionBuilder,
-      (PdfEntry, BaseReferences<_$AppDatabase, $PdfsTable, PdfEntry>),
+      (PdfEntry, $$PdfsTableReferences),
       PdfEntry,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool bookmarksRefs})
     >;
 typedef $$FoldersTableCreateCompanionBuilder = FoldersCompanion Function({
   required String id,
@@ -2279,7 +2483,9 @@ typedef $$BookmarksTableCreateCompanionBuilder = BookmarksCompanion Function({
   required String pdfId,
   required int pageNumber,
   Value<String?> label,
+  Value<String?> note,
   required DateTime createdAt,
+  Value<DateTime?> updatedAt,
   Value<int> rowid,
 });
 typedef $$BookmarksTableUpdateCompanionBuilder = BookmarksCompanion Function({
@@ -2287,9 +2493,33 @@ typedef $$BookmarksTableUpdateCompanionBuilder = BookmarksCompanion Function({
   Value<String> pdfId,
   Value<int> pageNumber,
   Value<String?> label,
+  Value<String?> note,
   Value<DateTime> createdAt,
+  Value<DateTime?> updatedAt,
   Value<int> rowid,
 });
+
+final class $$BookmarksTableReferences
+    extends BaseReferences<_$AppDatabase, $BookmarksTable, BookmarkEntry> {
+  $$BookmarksTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $PdfsTable _pdfIdTable(_$AppDatabase db) =>
+      db.pdfs.createAlias('bookmarks__pdf_id__pdfs__id');
+
+  $$PdfsTableProcessedTableManager get pdfId {
+    final $_column = $_itemColumn<String>('pdf_id')!;
+
+    final manager = $$PdfsTableTableManager(
+      $_db,
+      $_db.pdfs,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_pdfIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
 
 class $$BookmarksTableFilterComposer
     extends Composer<_$AppDatabase, $BookmarksTable> {
@@ -2305,11 +2535,6 @@ class $$BookmarksTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get pdfId => $composableBuilder(
-    column: $table.pdfId,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<int> get pageNumber => $composableBuilder(
     column: $table.pageNumber,
     builder: (column) => ColumnFilters(column),
@@ -2320,10 +2545,43 @@ class $$BookmarksTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$PdfsTableFilterComposer get pdfId {
+    final $$PdfsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.pdfId,
+      referencedTable: $db.pdfs,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PdfsTableFilterComposer(
+            $db: $db,
+            $table: $db.pdfs,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$BookmarksTableOrderingComposer
@@ -2340,11 +2598,6 @@ class $$BookmarksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get pdfId => $composableBuilder(
-    column: $table.pdfId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<int> get pageNumber => $composableBuilder(
     column: $table.pageNumber,
     builder: (column) => ColumnOrderings(column),
@@ -2355,10 +2608,43 @@ class $$BookmarksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$PdfsTableOrderingComposer get pdfId {
+    final $$PdfsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.pdfId,
+      referencedTable: $db.pdfs,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PdfsTableOrderingComposer(
+            $db: $db,
+            $table: $db.pdfs,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$BookmarksTableAnnotationComposer
@@ -2373,9 +2659,6 @@ class $$BookmarksTableAnnotationComposer
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
-  GeneratedColumn<String> get pdfId =>
-      $composableBuilder(column: $table.pdfId, builder: (column) => column);
-
   GeneratedColumn<int> get pageNumber => $composableBuilder(
     column: $table.pageNumber,
     builder: (column) => column,
@@ -2384,8 +2667,37 @@ class $$BookmarksTableAnnotationComposer
   GeneratedColumn<String> get label =>
       $composableBuilder(column: $table.label, builder: (column) => column);
 
+  GeneratedColumn<String> get note =>
+      $composableBuilder(column: $table.note, builder: (column) => column);
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$PdfsTableAnnotationComposer get pdfId {
+    final $$PdfsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.pdfId,
+      referencedTable: $db.pdfs,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PdfsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.pdfs,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$BookmarksTableTableManager
@@ -2399,12 +2711,9 @@ class $$BookmarksTableTableManager
           $$BookmarksTableAnnotationComposer,
           $$BookmarksTableCreateCompanionBuilder,
           $$BookmarksTableUpdateCompanionBuilder,
-          (
-            BookmarkEntry,
-            BaseReferences<_$AppDatabase, $BookmarksTable, BookmarkEntry>,
-          ),
+          (BookmarkEntry, $$BookmarksTableReferences),
           BookmarkEntry,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool pdfId})
         > {
   $$BookmarksTableTableManager(_$AppDatabase db, $BookmarksTable table)
     : super(
@@ -2423,14 +2732,18 @@ class $$BookmarksTableTableManager
                 Value<String> pdfId = const Value.absent(),
                 Value<int> pageNumber = const Value.absent(),
                 Value<String?> label = const Value.absent(),
+                Value<String?> note = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BookmarksCompanion(
                 id: id,
                 pdfId: pdfId,
                 pageNumber: pageNumber,
                 label: label,
+                note: note,
                 createdAt: createdAt,
+                updatedAt: updatedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -2439,29 +2752,68 @@ class $$BookmarksTableTableManager
                 required String pdfId,
                 required int pageNumber,
                 Value<String?> label = const Value.absent(),
+                Value<String?> note = const Value.absent(),
                 required DateTime createdAt,
+                Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BookmarksCompanion.insert(
                 id: id,
                 pdfId: pdfId,
                 pageNumber: pageNumber,
                 label: label,
+                note: note,
                 createdAt: createdAt,
+                updatedAt: updatedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
                   e.readTable<$BookmarksTable, BookmarkEntry>(table),
-                  BaseReferences<_$AppDatabase, $BookmarksTable, BookmarkEntry>(
-                    db,
-                    table,
-                    e,
-                  ),
+                  $$BookmarksTableReferences(db, table, e),
                 ),
               )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({pdfId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (pdfId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.pdfId,
+                        referencedTable: $$BookmarksTableReferences._pdfIdTable(
+                          db,
+                        ),
+                        referencedColumn: $$BookmarksTableReferences
+                            ._pdfIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
         ),
       );
 }
@@ -2476,12 +2828,9 @@ typedef $$BookmarksTableProcessedTableManager =
       $$BookmarksTableAnnotationComposer,
       $$BookmarksTableCreateCompanionBuilder,
       $$BookmarksTableUpdateCompanionBuilder,
-      (
-        BookmarkEntry,
-        BaseReferences<_$AppDatabase, $BookmarksTable, BookmarkEntry>,
-      ),
+      (BookmarkEntry, $$BookmarksTableReferences),
       BookmarkEntry,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool pdfId})
     >;
 
 class $AppDatabaseManager {

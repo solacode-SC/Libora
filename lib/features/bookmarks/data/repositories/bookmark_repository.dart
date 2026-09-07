@@ -9,8 +9,12 @@ abstract class BookmarkRepository {
   Stream<List<BookmarkItem>> watchBookmarksForPdf(String pdfId);
   Future<List<BookmarkItem>> getBookmarksForPdf(String pdfId);
   Stream<List<BookmarkItem>> watchAllBookmarks();
+  Future<BookmarkItem?> getBookmarkByPage(String pdfId, int pageNumber);
+  Future<int> getBookmarkCountForPdf(String pdfId);
   Future<void> addBookmark(BookmarkItem bookmark);
+  Future<void> updateBookmark(BookmarkItem bookmark);
   Future<void> deleteBookmark(String id);
+  Future<void> deleteBookmarksForPdf(String pdfId);
 }
 
 class DriftBookmarkRepository implements BookmarkRepository {
@@ -24,7 +28,9 @@ class DriftBookmarkRepository implements BookmarkRepository {
       pdfId: entry.pdfId,
       pageNumber: entry.pageNumber,
       label: entry.label,
+      note: entry.note,
       createdAt: entry.createdAt,
+      updatedAt: entry.updatedAt,
     );
   }
 
@@ -49,20 +55,52 @@ class DriftBookmarkRepository implements BookmarkRepository {
   }
 
   @override
+  Future<BookmarkItem?> getBookmarkByPage(String pdfId, int pageNumber) async {
+    final entry = await _dao.getBookmarkByPage(pdfId, pageNumber);
+    return entry != null ? _toItem(entry) : null;
+  }
+
+  @override
+  Future<int> getBookmarkCountForPdf(String pdfId) {
+    return _dao.getBookmarkCountForPdf(pdfId);
+  }
+
+  @override
   Future<void> addBookmark(BookmarkItem bookmark) async {
     final companion = BookmarksCompanion(
       id: Value(bookmark.id),
       pdfId: Value(bookmark.pdfId),
       pageNumber: Value(bookmark.pageNumber),
       label: Value(bookmark.label),
+      note: Value(bookmark.note),
       createdAt: Value(bookmark.createdAt),
+      updatedAt: Value(bookmark.updatedAt),
     );
     await _dao.insertBookmark(companion);
   }
 
   @override
+  Future<void> updateBookmark(BookmarkItem bookmark) async {
+    final companion = BookmarksCompanion(
+      id: Value(bookmark.id),
+      pdfId: Value(bookmark.pdfId),
+      pageNumber: Value(bookmark.pageNumber),
+      label: Value(bookmark.label),
+      note: Value(bookmark.note),
+      createdAt: Value(bookmark.createdAt),
+      updatedAt: Value(DateTime.now()),
+    );
+    await _dao.updateBookmark(companion);
+  }
+
+  @override
   Future<void> deleteBookmark(String id) async {
     await _dao.deleteBookmark(id);
+  }
+
+  @override
+  Future<void> deleteBookmarksForPdf(String pdfId) async {
+    await _dao.deleteBookmarksForPdf(pdfId);
   }
 }
 

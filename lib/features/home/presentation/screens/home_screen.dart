@@ -1,21 +1,55 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
-import '../../../../core/widgets/app_badge.dart';
-import '../../../../core/widgets/app_button.dart';
+import '../../../../core/constants/breakpoints.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/app_section_header.dart';
+import '../../../library/data/repositories/pdf_repository.dart';
+import '../../../library/domain/models/pdf_item.dart';
+import '../widgets/continue_reading_card.dart';
 
-class HomeScreen extends StatelessWidget {
+final continueReadingStreamProvider = StreamProvider<List<PdfItem>>((ref) {
+  final repo = ref.watch(pdfRepositoryProvider);
+  return repo.watchContinueReading(limit: 6);
+});
+
+final homeFavoritesStreamProvider = StreamProvider<List<PdfItem>>((ref) {
+  final repo = ref.watch(pdfRepositoryProvider);
+  return repo.watchFavorites();
+});
+
+final recentlyAddedStreamProvider = StreamProvider<List<PdfItem>>((ref) {
+  final repo = ref.watch(pdfRepositoryProvider);
+  return repo.watchRecentlyAdded(limit: 6);
+});
+
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Welcome back';
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final isMobile = Breakpoints.isMobile(MediaQuery.of(context).size.width);
+
+    final continueReadingAsync = ref.watch(continueReadingStreamProvider);
+    final favoritesAsync = ref.watch(homeFavoritesStreamProvider);
+    final recentlyAddedAsync = ref.watch(recentlyAddedStreamProvider);
+
+    final inProgressPdfs = continueReadingAsync.value ?? [];
+    final favoritePdfs = favoritesAsync.value ?? [];
+    final recentPdfs = recentlyAddedAsync.value ?? [];
 
     return Scaffold(
       backgroundColor: isDark
@@ -23,14 +57,14 @@ class HomeScreen extends StatelessWidget {
           : AppColors.lightBackground,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.xxl,
-            vertical: AppSpacing.xl,
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? AppSpacing.md : AppSpacing.xxl,
+            vertical: isMobile ? AppSpacing.md : AppSpacing.xl,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Editorial Hero Section
+              // Greeting Hero Section
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -47,7 +81,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.xxs),
                   Text(
-                    'A quiet place for your books.',
+                    '${_getGreeting()}.',
                     style: theme.textTheme.headlineLarge?.copyWith(
                       fontWeight: FontWeight.w600,
                       letterSpacing: -0.6,
@@ -55,7 +89,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    'Read locally downloaded PDFs or explore documents from connected repositories.',
+                    'A calm, focused place for your documents and books.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: isDark
                           ? AppColors.darkTextSecondary
@@ -64,157 +98,45 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.xxl),
+              const SizedBox(height: AppSpacing.xl),
               Divider(color: borderColor, height: 1.0),
-              const SizedBox(height: AppSpacing.xxl),
+              const SizedBox(height: AppSpacing.xl),
 
-              // Section 1: Continue Reading
-              const AppSectionHeader(
-                eyebrow: 'READING PROGRESS',
-                title: 'Continue Reading',
-                subtitle: 'Pick up right where you left off',
-              ),
-              const SizedBox(height: AppSpacing.md),
-              AppCard(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Cover preview placeholder
-                        Container(
-                          width: 52,
-                          height: 72,
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? AppColors.darkSurfaceSubtle
-                                : AppColors.lightSurfaceSubtle,
-                            borderRadius: AppSpacing.roundedXs,
-                            border: Border.all(color: borderColor, width: 1.0),
-                          ),
-                          child: Icon(
-                            Icons.menu_book_rounded,
-                            size: 24,
-                            color: isDark
-                                ? AppColors.darkTextMuted
-                                : AppColors.lightTextMuted,
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Wrap(
-                                alignment: WrapAlignment.spaceBetween,
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                spacing: AppSpacing.xs,
-                                runSpacing: AppSpacing.xxs,
-                                children: [
-                                  const AppBadge(label: 'LOCAL'),
-                                  Text(
-                                    'Page 42 of 120',
-                                    style: TextStyle(
-                                      fontSize: 12.0,
-                                      color: isDark
-                                          ? AppColors.darkTextSecondary
-                                          : AppColors.lightTextSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: AppSpacing.xs),
-                              Text(
-                                'Design Patterns & Minimal Architecture',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: AppSpacing.xxs),
-                              Text(
-                                'Local Library • Added recently',
-                                style: theme.textTheme.bodySmall,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-
-                    // Reading Gauge (Inspired by Reference Design's Weight Gauge)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            height: 6.0,
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? AppColors.darkSurfaceSubtle
-                                  : AppColors.lightSurfaceSubtle,
-                              borderRadius: AppSpacing.roundedXs,
-                              border: Border.all(
-                                color: borderColor,
-                                width: 0.5,
-                              ),
-                            ),
-                            child: FractionallySizedBox(
-                              alignment: Alignment.centerLeft,
-                              widthFactor: 0.35,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: isDark
-                                      ? AppColors.darkTextPrimary
-                                      : AppColors.strongCharcoal,
-                                  borderRadius: AppSpacing.roundedXs,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Text(
-                          '35%',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.5,
-                            color: isDark
-                                ? AppColors.darkTextSecondary
-                                : AppColors.lightTextSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Wrap(
-                      alignment: WrapAlignment.end,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: AppSpacing.xs,
-                      runSpacing: AppSpacing.xs,
-                      children: [
-                        AppButton.ghost(
-                          label: 'View in Library',
-                          size: AppButtonSize.small,
-                          onPressed: () => context.go('/library'),
-                        ),
-                        AppButton.primary(
-                          label: 'Resume Reading',
-                          icon: Icons.play_arrow_rounded,
-                          size: AppButtonSize.small,
-                          onPressed: () => context.push('/reader/demo-pdf-1'),
-                        ),
-                      ],
-                    ),
-                  ],
+              // 1. Continue Reading (hidden if no in-progress books)
+              if (inProgressPdfs.isNotEmpty) ...[
+                const AppSectionHeader(
+                  eyebrow: 'READING PROGRESS',
+                  title: 'Continue Reading',
+                  subtitle: 'Pick up right where you left off',
                 ),
-              ),
+                const SizedBox(height: AppSpacing.md),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isCompact = constraints.maxWidth < 640;
+                    return GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: inProgressPdfs.length,
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: isCompact ? 1 : 2,
+                        childAspectRatio: isCompact ? 2.8 : 2.5,
+                        crossAxisSpacing: AppSpacing.md,
+                        mainAxisSpacing: AppSpacing.md,
+                      ),
+                      itemBuilder: (context, index) {
+                        final pdf = inProgressPdfs[index];
+                        return ContinueReadingCard(
+                          pdf: pdf,
+                          onTap: () => context.push('/reader/${pdf.id}'),
+                        );
+                      },
+                    );
+                  },
+                ),
+                const SizedBox(height: AppSpacing.xxl),
+              ],
 
-              const SizedBox(height: AppSpacing.xxl),
-
-              // Section 2: Quick Collections
+              // 2. Collections Quick Access
               const AppSectionHeader(
                 eyebrow: 'BROWSE',
                 title: 'Collections',
@@ -224,11 +146,11 @@ class HomeScreen extends StatelessWidget {
               LayoutBuilder(
                 builder: (context, constraints) {
                   final isCompact = constraints.maxWidth < 560;
-                  final items = const [
+                  final items = [
                     (
                       icon: Icons.star_outline_rounded,
                       title: 'Favorites',
-                      subtitle: 'Starred items',
+                      subtitle: '${favoritePdfs.length} starred',
                       route: '/favorites',
                     ),
                     (
@@ -240,7 +162,7 @@ class HomeScreen extends StatelessWidget {
                     (
                       icon: Icons.folder_outlined,
                       title: 'Folders',
-                      subtitle: 'Custom series',
+                      subtitle: 'Categories',
                       route: '/folders',
                     ),
                   ];
@@ -280,6 +202,148 @@ class HomeScreen extends StatelessWidget {
                   );
                 },
               ),
+
+              // 3. Recently Added (or empty library callout)
+              if (recentPdfs.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.xxl),
+                AppSectionHeader(
+                  eyebrow: 'RECENTLY ADDED',
+                  title: 'Latest Documents',
+                  subtitle: 'Recently imported into your library',
+                  trailing: TextButton(
+                    onPressed: () => context.go('/library'),
+                    child: const Text('View all'),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: recentPdfs.length > 4 ? 4 : recentPdfs.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: AppSpacing.xs),
+                  itemBuilder: (context, index) {
+                    final pdf = recentPdfs[index];
+                    return AppCard(
+                      onTap: () => context.push('/reader/${pdf.id}'),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.sm,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.picture_as_pdf_outlined,
+                            size: 20,
+                            color: isDark
+                                ? AppColors.darkTextSecondary
+                                : AppColors.lightTextSecondary,
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  pdf.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                if (pdf.pageCount != null &&
+                                    pdf.pageCount! > 0) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${pdf.pageCount} pages',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: isDark
+                                          ? AppColors.darkTextMuted
+                                          : AppColors.lightTextMuted,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          if (pdf.isFavorite)
+                            Icon(
+                              Icons.star_rounded,
+                              size: 16,
+                              color: Colors.amber.shade700,
+                            ),
+                          const SizedBox(width: AppSpacing.xs),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            size: 18,
+                            color: isDark
+                                ? AppColors.darkTextMuted
+                                : AppColors.lightTextMuted,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ] else ...[
+                const SizedBox(height: AppSpacing.xxl),
+                AppCard(
+                  onTap: () => context.go('/library'),
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? AppColors.darkSurfaceSubtle
+                              : AppColors.lightSurfaceSubtle,
+                          borderRadius: AppSpacing.roundedSm,
+                        ),
+                        child: Icon(
+                          Icons.add_circle_outline_rounded,
+                          size: 22,
+                          color: isDark
+                              ? AppColors.darkTextPrimary
+                              : AppColors.strongCharcoal,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Import your first PDF',
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Add books and documents from your device to your library.',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: isDark
+                                    ? AppColors.darkTextSecondary
+                                    : AppColors.lightTextSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 18,
+                        color: isDark
+                            ? AppColors.darkTextMuted
+                            : AppColors.lightTextMuted,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),

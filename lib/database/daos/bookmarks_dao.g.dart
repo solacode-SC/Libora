@@ -4,6 +4,7 @@ part of 'bookmarks_dao.dart';
 
 // ignore_for_file: type=lint
 mixin _$BookmarksDaoMixin on DatabaseAccessor<AppDatabase> {
+  $PdfsTable get pdfs => attachedDatabase.pdfs;
   $BookmarksTable get bookmarks => attachedDatabase.bookmarks;
   BookmarksDaoManager get managers => BookmarksDaoManager(this);
 }
@@ -11,6 +12,8 @@ mixin _$BookmarksDaoMixin on DatabaseAccessor<AppDatabase> {
 class BookmarksDaoManager {
   final _$BookmarksDaoMixin _db;
   BookmarksDaoManager(this._db);
+  $$PdfsTableTableManager get pdfs =>
+      $$PdfsTableTableManager(_db.attachedDatabase, _db.pdfs);
   $$BookmarksTableTableManager get bookmarks =>
       $$BookmarksTableTableManager(_db.attachedDatabase, _db.bookmarks);
 }

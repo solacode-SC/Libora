@@ -6,60 +6,131 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:pdfrx/pdfrx.dart';
 
+import '../utils/app_logger.dart';
 import 'pdf_file_service.dart';
 
 /// Concrete implementation of [PdfFileService] handling file picking, validation, and metadata extraction.
 class DefaultPdfFileService implements PdfFileService {
   @override
   Future<List<File>> pickPdfFiles() async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf'],
-    );
-
-    if (result.isEmpty) {
-      return [];
-    }
-
     final files = <File>[];
-    for (final picked in result) {
-      if (picked.path != null) {
-        final file = File(picked.path!);
-        if (await file.exists() && file.path.toLowerCase().endsWith('.pdf')) {
-          files.add(file);
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'PDF'],
+      );
+
+      for (final picked in result) {
+        final filePath =
+            picked.path ??
+            (picked.uri.scheme == 'file' ? picked.uri.toFilePath() : null);
+        if (filePath != null && filePath.isNotEmpty) {
+          final file = File(filePath);
+          if (await file.exists() && file.path.toLowerCase().endsWith('.pdf')) {
+            files.add(file);
+          }
         }
+      }
+    } catch (e, stack) {
+      AppLogger.warning(
+        'FilePicker.platform.pickFiles failed: $e. Trying Linux desktop fallback...',
+        error: e,
+        stackTrace: stack,
+      );
+      if (Platform.isLinux) {
+        final fallbackFiles = await _pickFilesLinuxFallback();
+        files.addAll(fallbackFiles);
       }
     }
     return files;
   }
 
+  Future<List<File>> _pickFilesLinuxFallback() async {
+    try {
+      const zenityPath = '/usr/bin/zenity';
+      if (File(zenityPath).existsSync()) {
+        final res = await Process.run(zenityPath, [
+          '--file-selection',
+          '--multiple',
+          '--separator=|',
+          '--file-filter=PDF Documents (*.pdf) | *.pdf *.PDF',
+          '--title=Import PDF Documents',
+        ]);
+        if (res.exitCode == 0) {
+          final raw = res.stdout.toString().trim();
+          if (raw.isNotEmpty) {
+            final paths = raw.split('|');
+            final list = <File>[];
+            for (final path in paths) {
+              final trimmed = path.trim();
+              if (trimmed.isNotEmpty) {
+                final file = File(trimmed);
+                if (await file.exists() &&
+                    file.path.toLowerCase().endsWith('.pdf')) {
+                  list.add(file);
+                }
+              }
+            }
+            return list;
+          }
+        }
+      }
+    } catch (e, stack) {
+      AppLogger.error(
+        'Linux file picker fallback failed: $e',
+        error: e,
+        stackTrace: stack,
+      );
+    }
+    return [];
+  }
+
   @override
   Future<bool> validatePdf(File file) async {
+    RandomAccessFile? raf;
     try {
       if (!await file.exists()) return false;
       final length = await file.length();
       if (length < 5) return false;
 
-      // Check PDF magic header '%PDF-'
-      final raf = await file.open(mode: FileMode.read);
-      final header = await raf.read(5);
-      await raf.close();
+      raf = await file.open(mode: FileMode.read);
+      final bytesToRead = length < 1024 ? length : 1024;
+      final header = await raf.read(bytesToRead);
 
-      // Bytes for '%PDF-': 0x25, 0x50, 0x44, 0x46, 0x2D
-      return header.length == 5 &&
-          header[0] == 0x25 &&
-          header[1] == 0x50 &&
-          header[2] == 0x44 &&
-          header[3] == 0x46 &&
-          header[4] == 0x2D;
-    } catch (_) {
+      // Search for '%PDF-' (0x25, 0x50, 0x44, 0x46, 0x2D) in the first 1024 bytes per PDF standard
+      const magic = [0x25, 0x50, 0x44, 0x46, 0x2D];
+      for (int i = 0; i <= header.length - magic.length; i++) {
+        var match = true;
+        for (int j = 0; j < magic.length; j++) {
+          if (header[i + j] != magic[j]) {
+            match = false;
+            break;
+          }
+        }
+        if (match) return true;
+      }
+      AppLogger.warning(
+        'File is not a valid PDF (%PDF- header missing): ${file.path}',
+      );
       return false;
+    } catch (e, stack) {
+      AppLogger.warning(
+        'PDF validation failed for ${file.path}: $e',
+        error: e,
+        stackTrace: stack,
+      );
+      return false;
+    } finally {
+      await raf?.close();
     }
   }
 
   @override
-  Future<PdfMetadata> extractMetadata(File file) async {
-    final fileName = p.basename(file.path);
+  Future<PdfMetadata> extractMetadata(
+    File file, {
+    String? originalFileName,
+  }) async {
+    final fileName = originalFileName ?? p.basename(file.path);
     final derivedTitle = cleanTitleFromFileName(fileName);
     final fileSize = await file.length();
 

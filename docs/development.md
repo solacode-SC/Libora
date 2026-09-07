@@ -127,4 +127,18 @@ flutter test
   - `+` / `=`: zoom in
   - `-`: zoom out
   - `0`: fit width
+  - `B`: toggle bookmark modal for current page
   - `Esc`: exit reader and return to library
+
+---
+
+## 7. Search, Favorites, Bookmarks & Continue Reading Notes (Phase 3)
+
+- **Database Migration (Schema v3)**: Bookmarks table includes `note`, `updatedAt`, foreign key cascade to `pdfs`, and unique constraint on `(pdfId, pageNumber)`.
+- **Continue Reading**: Computed on the fly via `watchContinueReading` (`currentPage > 0 && lastReadAt != null`). If the list is empty, the continue reading section on the Home dashboard is concealed.
+- **Bookmarks Management**:
+  - In-reader: Quick bookmark icon in toolbar or `B` key opens `BookmarkDialog`. All PDF bookmarks can be viewed via the slide-out `ReaderBookmarksPanel`.
+  - Global: `/bookmarks` displays all bookmarks across all documents. Clicking opens the reader at that exact page via route query parameter `?page=N`.
+- **Favorites**: Toggle `isFavorite` directly via `PdfRepository.toggleFavorite(id, isFavorite)`. Reuses existing `pdfs` table column.
+- **Search**: `PdfRepository.searchPdfs(query, {folderId})` enables case-insensitive substring search matching against `title` and `fileName`.
+
