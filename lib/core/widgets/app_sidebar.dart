@@ -27,7 +27,7 @@ class AppSidebar extends StatelessWidget {
     required this.onNavigate,
   });
 
-  static const List<NavDestination> primaryDestinations = [
+  static const List<NavDestination> mainDestinations = [
     NavDestination(
       label: 'Home',
       route: '/home',
@@ -46,6 +46,9 @@ class AppSidebar extends StatelessWidget {
       icon: Icons.explore_outlined,
       selectedIcon: Icons.explore_rounded,
     ),
+  ];
+
+  static const List<NavDestination> collectionDestinations = [
     NavDestination(
       label: 'Favorites',
       route: '/favorites',
@@ -66,7 +69,7 @@ class AppSidebar extends StatelessWidget {
     ),
   ];
 
-  static const List<NavDestination> secondaryDestinations = [
+  static const List<NavDestination> utilityDestinations = [
     NavDestination(
       label: 'GitHub',
       route: '/github',
@@ -81,6 +84,13 @@ class AppSidebar extends StatelessWidget {
     ),
   ];
 
+  // Backward compatibility alias for tests
+  static List<NavDestination> get primaryDestinations => [
+    ...mainDestinations,
+    ...collectionDestinations,
+  ];
+  static List<NavDestination> get secondaryDestinations => utilityDestinations;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -94,53 +104,103 @@ class AppSidebar extends StatelessWidget {
       width: AppSpacing.sidebarWidth,
       decoration: BoxDecoration(
         color: surfaceColor,
-        border: Border(right: BorderSide(color: borderColor)),
+        border: Border(right: BorderSide(color: borderColor, width: 1.0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header / Logo
+          // Minimalist Header / Brand
           Container(
             height: AppSpacing.topBarHeight,
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
             alignment: Alignment.centerLeft,
             child: Row(
               children: [
                 Container(
-                  width: 32,
-                  height: 32,
+                  width: 28,
+                  height: 28,
                   decoration: BoxDecoration(
-                    color: AppColors.primary,
+                    color: isDark
+                        ? AppColors.darkTextPrimary
+                        : AppColors.strongCharcoal,
                     borderRadius: AppSpacing.roundedSm,
                   ),
-                  child: const Icon(
-                    Icons.auto_stories_rounded,
-                    color: Colors.white,
-                    size: 18,
+                  child: Icon(
+                    Icons.menu_book_rounded,
+                    color: isDark
+                        ? AppColors.darkBackground
+                        : AppColors.lightSurface,
+                    size: 15,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
-                Text(
-                  'Libora',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
-                  ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Libora',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.3,
+                        height: 1.1,
+                      ),
+                    ),
+                    Text(
+                      'BOOKSHELF',
+                      style: TextStyle(
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.2,
+                        color: isDark
+                            ? AppColors.darkTextMuted
+                            : AppColors.lightTextMuted,
+                        height: 1.2,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          const Divider(),
+          Divider(color: borderColor, height: 1.0),
 
-          // Primary navigation list
+          // Main Navigation List
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.sm,
-                vertical: AppSpacing.sm,
+                vertical: AppSpacing.md,
               ),
               children: [
-                for (final item in primaryDestinations)
+                for (final item in mainDestinations)
+                  _SidebarNavItem(
+                    destination: item,
+                    isSelected: currentRoute == item.route,
+                    onTap: () => onNavigate(item.route),
+                  ),
+
+                const SizedBox(height: AppSpacing.md),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.xxs,
+                  ),
+                  child: Text(
+                    'COLLECTIONS',
+                    style: TextStyle(
+                      fontSize: 10.0,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.4,
+                      color: isDark
+                          ? AppColors.darkTextMuted
+                          : AppColors.lightTextMuted,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xxs),
+
+                for (final item in collectionDestinations)
                   _SidebarNavItem(
                     destination: item,
                     isSelected: currentRoute == item.route,
@@ -150,8 +210,8 @@ class AppSidebar extends StatelessWidget {
             ),
           ),
 
-          const Divider(),
-          // Secondary navigation (GitHub, Settings)
+          Divider(color: borderColor, height: 1.0),
+          // Utility Navigation (GitHub, Settings)
           Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.sm,
@@ -159,7 +219,7 @@ class AppSidebar extends StatelessWidget {
             ),
             child: Column(
               children: [
-                for (final item in secondaryDestinations)
+                for (final item in utilityDestinations)
                   _SidebarNavItem(
                     destination: item,
                     isSelected: currentRoute == item.route,
@@ -174,7 +234,7 @@ class AppSidebar extends StatelessWidget {
   }
 }
 
-class _SidebarNavItem extends StatelessWidget {
+class _SidebarNavItem extends StatefulWidget {
   final NavDestination destination;
   final bool isSelected;
   final VoidCallback onTap;
@@ -186,48 +246,80 @@ class _SidebarNavItem extends StatelessWidget {
   });
 
   @override
+  State<_SidebarNavItem> createState() => _SidebarNavItemState();
+}
+
+class _SidebarNavItemState extends State<_SidebarNavItem> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final selectedColor = theme.colorScheme.primary;
+
     final selectedBg = isDark
-        ? AppColors.primary.withAlpha(50)
-        : AppColors.primary.withAlpha(25);
+        ? AppColors.darkSurfaceSubtle
+        : AppColors.lightSurfaceSubtle;
+    final hoverBg = isDark
+        ? AppColors.darkSurfaceSubtle.withAlpha(120)
+        : AppColors.lightSurfaceSubtle.withAlpha(150);
+
+    final bg = widget.isSelected
+        ? selectedBg
+        : (_isHovered ? hoverBg : Colors.transparent);
+
+    final textColor = widget.isSelected
+        ? (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary)
+        : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary);
+
+    final iconColor = widget.isSelected
+        ? (isDark ? AppColors.darkTextPrimary : AppColors.strongCharcoal)
+        : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2.0),
-      child: Material(
-        color: isSelected ? selectedBg : Colors.transparent,
-        borderRadius: AppSpacing.roundedSm,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: AppSpacing.roundedSm,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: 10,
+      padding: const EdgeInsets.symmetric(vertical: 1.5),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOut,
+            height: AppSpacing.navItemHeight,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: AppSpacing.roundedSm,
+              border: Border.all(
+                color: widget.isSelected
+                    ? (isDark
+                          ? AppColors.darkBorderStrong
+                          : AppColors.lightBorderStrong)
+                    : Colors.transparent,
+                width: 1.0,
+              ),
             ),
             child: Row(
               children: [
                 Icon(
-                  isSelected ? destination.selectedIcon : destination.icon,
+                  widget.isSelected
+                      ? widget.destination.selectedIcon
+                      : widget.destination.icon,
                   size: AppSpacing.iconMd,
-                  color: isSelected
-                      ? selectedColor
-                      : (isDark
-                            ? AppColors.darkTextSecondary
-                            : AppColors.lightTextSecondary),
+                  color: iconColor,
                 ),
-                const SizedBox(width: AppSpacing.md),
+                const SizedBox(width: AppSpacing.sm),
                 Text(
-                  destination.label,
+                  widget.destination.label,
                   style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    color: isSelected
-                        ? selectedColor
-                        : (isDark
-                              ? AppColors.darkTextPrimary
-                              : AppColors.lightTextPrimary),
+                    fontSize: 13.5,
+                    fontWeight: widget.isSelected
+                        ? FontWeight.w600
+                        : FontWeight.w400,
+                    color: textColor,
+                    letterSpacing: -0.1,
                   ),
                 ),
               ],
