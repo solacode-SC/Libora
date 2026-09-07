@@ -1,0 +1,70 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Visual Studio Code related
+.vscode/
+
+# Flutter / Dart / Pub related
+**/doc/api/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
+
+# Symbol processing related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts in the Android folder
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Environment variables & secrets (CRITICAL)
+.env
+.env.*
+*.env
+
+# Local SQLite & Drift databases (CRITICAL: local-first app, no DBs in Git)
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# Fastlane
+**/fastlane/report.xml
+**/fastlane/Preview.html
+**/fastlane/screenshots
+**/fastlane/test_output
+
+# Linux desktop build artifacts
+linux/flutter/ephemeral/
+
+# Windows desktop build artifacts
+windows/flutter/ephemeral/
+
+# macOS desktop build artifacts
+macos/Flutter/ephemeral/
+
