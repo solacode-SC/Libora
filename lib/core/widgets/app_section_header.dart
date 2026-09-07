@@ -97,9 +97,7 @@ class AppSectionHeader extends StatelessWidget {
         return Container(
           decoration: showBottomBorder
               ? BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: borderColor, width: 1.0),
-                  ),
+                  border: Border(bottom: BorderSide(color: borderColor, width: 1.0)),
                 )
               : null,
           padding: showBottomBorder

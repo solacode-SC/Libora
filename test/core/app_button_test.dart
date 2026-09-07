@@ -1,14 +1,11 @@
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:libora/core/widgets/app_button.dart';
 
 void main() {
   group('AppButton Dimension Stability Tests', () {
-    testWidgets('AppButton maintains exact dimensions during hover and press', (
-      tester,
-    ) async {
+    testWidgets('AppButton maintains exact dimensions during hover and press', (tester) async {
       bool pressed = false;
 
       await tester.pumpWidget(
@@ -37,30 +34,18 @@ void main() {
       await tester.pumpAndSettle();
 
       final hoveredBox = tester.renderObject<RenderBox>(find.byType(AppButton));
-      expect(
-        hoveredBox.size,
-        equals(initialSize),
-        reason: 'Button must not change size on hover',
-      );
+      expect(hoveredBox.size, equals(initialSize), reason: 'Button must not change size on hover');
 
       // Click button
       await tester.tap(find.byType(AppButton));
       await tester.pumpAndSettle();
 
       expect(pressed, isTrue);
-      final postClickBox = tester.renderObject<RenderBox>(
-        find.byType(AppButton),
-      );
-      expect(
-        postClickBox.size,
-        equals(initialSize),
-        reason: 'Button must not change size after click',
-      );
+      final postClickBox = tester.renderObject<RenderBox>(find.byType(AppButton));
+      expect(postClickBox.size, equals(initialSize), reason: 'Button must not change size after click');
     });
 
-    testWidgets('AppIconButton maintains exact dimensions during hover', (
-      tester,
-    ) async {
+    testWidgets('AppIconButton maintains exact dimensions during hover', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -85,9 +70,7 @@ void main() {
       await gesture.moveTo(tester.getCenter(find.byType(AppIconButton)));
       await tester.pumpAndSettle();
 
-      final hoveredBox = tester.renderObject<RenderBox>(
-        find.byType(AppIconButton),
-      );
+      final hoveredBox = tester.renderObject<RenderBox>(find.byType(AppIconButton));
       expect(hoveredBox.size, equals(const Size(36.0, 36.0)));
     });
   });
