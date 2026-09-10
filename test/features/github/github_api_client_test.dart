@@ -147,6 +147,31 @@ void main() {
         throwsA(isA<GitHubRateLimitException>()),
       );
     });
+
+    test('permission error translates 403 to GitHubPermissionException', () async {
+      dio.httpClientAdapter = _MockHttpAdapter((options) async {
+        return ResponseBody.fromString(
+          '{"message": "Resource not accessible by personal access token"}',
+          403,
+          headers: {
+            Headers.contentTypeHeader: [Headers.jsonContentType],
+          },
+        );
+      });
+
+      expect(
+        () => apiClient.uploadFile(
+          owner: 'octocat',
+          repo: 'test-repo',
+          path: 'Doc.pdf',
+          contentBytes: [1, 2, 3],
+          message: 'Add doc',
+          branch: 'main',
+          token: 'ghp_token',
+        ),
+        throwsA(isA<GitHubPermissionException>()),
+      );
+    });
   });
 }
 

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../../core/utils/app_logger.dart';
 import '../../domain/exceptions/github_exception.dart';
@@ -61,7 +62,7 @@ class GitHubApiClient implements IGitHubApiClient {
                 headers: {
                   'Accept': 'application/vnd.github+json',
                   'X-GitHub-Api-Version': '2022-11-28',
-                  'User-Agent': 'Libora-App',
+                  if (!kIsWeb) 'User-Agent': 'Libora-App',
                 },
               ),
             );
@@ -148,9 +149,12 @@ class GitHubApiClient implements IGitHubApiClient {
       return GitHubTreeDto.fromJson(response.data!);
     } on DioException catch (e) {
       // Empty repo returns 404 or 409
-      if (e.response?.statusCode == 404 || e.response?.statusCode == 409) {
-        final msg = e.response?.data?['message']?.toString().toLowerCase() ?? '';
-        if (msg.contains('empty') || msg.contains('git repository is empty')) {
+      final statusCode = e.response?.statusCode;
+      if (statusCode == 404 || statusCode == 409) {
+        final msg = e.response?.data is Map<String, dynamic>
+            ? (e.response!.data['message']?.toString().toLowerCase() ?? '')
+            : (e.response?.data?.toString().toLowerCase() ?? '');
+        if (statusCode == 409 || msg.contains('empty') || msg.contains('git repository is empty')) {
           AppLogger.info('Repository is empty: $owner/$repo', tag: 'GitHubApiClient');
           return const GitHubTreeDto(sha: '', tree: []);
         }
@@ -293,15 +297,34 @@ class GitHubApiClient implements IGitHubApiClient {
     if (statusCode == 401) {
       return const GitHubAuthException();
     } else if (statusCode == 403 || statusCode == 429) {
-      final resetHeader = e.response?.headers.value('x-ratelimit-reset');
-      DateTime? resetTime;
-      if (resetHeader != null) {
-        final epochSeconds = int.tryParse(resetHeader);
-        if (epochSeconds != null) {
-          resetTime = DateTime.fromMillisecondsSinceEpoch(epochSeconds * 1000);
+      final remaining = e.response?.headers.value('x-ratelimit-remaining');
+      final responseMsg = e.response?.data is Map<String, dynamic>
+          ? e.response?.data['message']?.toString()
+          : (e.response?.data is String ? e.response?.data as String : null);
+
+      final isRateLimit = statusCode == 429 ||
+          remaining == '0' ||
+          (responseMsg != null &&
+              (responseMsg.toLowerCase().contains('rate limit') ||
+                  responseMsg.toLowerCase().contains('secondary')));
+
+      if (isRateLimit) {
+        final resetHeader = e.response?.headers.value('x-ratelimit-reset');
+        DateTime? resetTime;
+        if (resetHeader != null) {
+          final epochSeconds = int.tryParse(resetHeader);
+          if (epochSeconds != null) {
+            resetTime = DateTime.fromMillisecondsSinceEpoch(epochSeconds * 1000);
+          }
         }
+        return GitHubRateLimitException(resetTime: resetTime);
+      } else {
+        return GitHubPermissionException(
+          responseMsg != null
+              ? 'GitHub permission error: $responseMsg. Ensure your token has "Contents: Read and write" repository permissions.'
+              : 'Personal Access Token lacks write permission for this repository. Please grant "Contents: Read and write" (or "repo" scope).',
+        );
       }
-      return GitHubRateLimitException(resetTime: resetTime);
     } else if (statusCode == 404) {
       return const GitHubNotFoundException();
     } else if (statusCode == 409) {

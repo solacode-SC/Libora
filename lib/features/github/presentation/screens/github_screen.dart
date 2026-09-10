@@ -776,21 +776,55 @@ class _GitHubScreenState extends ConsumerState<GitHubScreen> {
   }
 
   Widget _buildSyncSummaryBox(SyncResult result, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle,
-        borderRadius: AppSpacing.roundedSm,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildSummaryItem('Uploaded', result.uploadedCount.toString(), Colors.teal),
-          _buildSummaryItem('Downloaded', result.downloadedCount.toString(), Colors.blue),
-          _buildSummaryItem('Deleted', result.deletedCount.toString(), Colors.grey),
-          _buildSummaryItem('Conflicts', result.conflictCount.toString(), Colors.orange),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle,
+            borderRadius: AppSpacing.roundedSm,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildSummaryItem('Uploaded', result.uploadedCount.toString(), Colors.teal),
+              _buildSummaryItem('Downloaded', result.downloadedCount.toString(), Colors.blue),
+              _buildSummaryItem('Deleted', result.deletedCount.toString(), Colors.grey),
+              _buildSummaryItem('Conflicts', result.conflictCount.toString(), Colors.orange),
+              if (result.errorCount > 0)
+                _buildSummaryItem('Errors', result.errorCount.toString(), Colors.red),
+            ],
+          ),
+        ),
+        if (result.errors.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.xs),
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: Colors.red.shade900.withValues(alpha: 0.1),
+              borderRadius: AppSpacing.roundedSm,
+              border: Border.all(color: Colors.red.shade700.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline_rounded, size: 16, color: Colors.red.shade400),
+                const SizedBox(width: AppSpacing.xs),
+                Expanded(
+                  child: Text(
+                    result.errors.first,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.red.shade200 : Colors.red.shade800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
-      ),
+      ],
     );
   }
 

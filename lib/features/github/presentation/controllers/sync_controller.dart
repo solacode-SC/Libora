@@ -95,6 +95,7 @@ class SyncController extends Notifier<SyncState> {
         lastResult: result,
         lastSyncedAt: now,
         progress: null,
+        errorMessage: result.errors.isNotEmpty ? result.errors.first : null,
       );
 
       return result;
@@ -108,6 +109,14 @@ class SyncController extends Notifier<SyncState> {
       return null;
     } on GitHubAuthException catch (e) {
       AppLogger.error('Sync auth failure: $e', tag: 'SyncController');
+      state = state.copyWith(
+        status: OverallSyncStatus.error,
+        errorMessage: e.message,
+        progress: null,
+      );
+      return null;
+    } on GitHubPermissionException catch (e) {
+      AppLogger.error('Sync permission failure: $e', tag: 'SyncController');
       state = state.copyWith(
         status: OverallSyncStatus.error,
         errorMessage: e.message,

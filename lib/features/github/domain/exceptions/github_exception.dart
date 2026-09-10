@@ -13,6 +13,11 @@ class GitHubAuthException extends GitHubException {
       : super(message, 401);
 }
 
+class GitHubPermissionException extends GitHubException {
+  const GitHubPermissionException([String message = 'Personal Access Token does not have permission to write to this repository. Ensure your token has "Contents: Read and write" (or "repo" scope).'])
+      : super(message, 403);
+}
+
 class GitHubRateLimitException extends GitHubException {
   final DateTime? resetTime;
   const GitHubRateLimitException({
