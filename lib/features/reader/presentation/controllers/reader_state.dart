@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../../bookmarks/domain/models/bookmark_item.dart';
 
 /// Status of the PDF reader.
@@ -12,6 +14,7 @@ class ReaderState {
   final String? title;
   final String? fileName;
   final String? localPath;
+  final Uint8List? pdfBytes;
   final String? coverPath;
   final String? folderId;
   final int? fileSize;
@@ -31,6 +34,7 @@ class ReaderState {
     this.title,
     this.fileName,
     this.localPath,
+    this.pdfBytes,
     this.coverPath,
     this.folderId,
     this.fileSize,
@@ -80,6 +84,7 @@ class ReaderState {
     String? title,
     String? fileName,
     String? localPath,
+    Uint8List? pdfBytes,
     String? coverPath,
     String? folderId,
     int? fileSize,
@@ -99,6 +104,7 @@ class ReaderState {
       title: title ?? this.title,
       fileName: fileName ?? this.fileName,
       localPath: localPath ?? this.localPath,
+      pdfBytes: pdfBytes ?? this.pdfBytes,
       coverPath: coverPath ?? this.coverPath,
       folderId: folderId ?? this.folderId,
       fileSize: fileSize ?? this.fileSize,

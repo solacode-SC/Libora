@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../../core/storage/pdf_storage_provider.dart';
+import '../../../../core/storage/pdf_storage_service.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../bookmarks/data/repositories/bookmark_repository.dart';
 import '../../../bookmarks/domain/models/bookmark_item.dart';
@@ -26,6 +29,7 @@ class ReaderController extends Notifier<ReaderState> {
 
   late PdfRepository _pdfRepository;
   late BookmarkRepository _bookmarkRepository;
+  late PdfStorageService _pdfStorage;
   Timer? _debounceTimer;
   StreamSubscription<List<BookmarkItem>>? _bookmarksSub;
   final _uuid = const Uuid();
@@ -34,6 +38,7 @@ class ReaderController extends Notifier<ReaderState> {
   ReaderState build() {
     _pdfRepository = ref.watch(pdfRepositoryProvider);
     _bookmarkRepository = ref.watch(bookmarkRepositoryProvider);
+    _pdfStorage = ref.watch(pdfStorageServiceProvider);
 
     ref.onDispose(() {
       _debounceTimer?.cancel();
@@ -57,6 +62,7 @@ class ReaderController extends Notifier<ReaderState> {
   Future<void> _loadPdf(String id) async {
     try {
       final pdf = await _pdfRepository.getPdfById(id);
+      if (!ref.mounted) return;
 
       if (pdf == null) {
         state = state.copyWith(
@@ -67,28 +73,36 @@ class ReaderController extends Notifier<ReaderState> {
         return;
       }
 
-      // Verify local file exists
-      final localPath = pdf.localPath;
-      if (localPath == null || localPath.isEmpty) {
-        state = ReaderState(
-          status: ReaderStatus.error,
-          pdfId: pdf.id,
-          title: pdf.title,
-          fileName: pdf.fileName,
-          errorMessage: 'This PDF is no longer available.\n\nThe local file could not be found.',
-          isFileAvailable: false,
-        );
-        return;
-      }
+      // Verify file exists in PdfStorageService or filesystem
+      Uint8List? pdfBytes;
+      String? localPath = pdf.localPath;
 
-      final file = File(localPath);
-      if (!file.existsSync()) {
+      final existsInStorage = await _pdfStorage.exists(pdf.id);
+      if (!ref.mounted) return;
+
+      if (existsInStorage) {
+        pdfBytes = await _pdfStorage.readPdf(pdf.id);
+        if (!ref.mounted) return;
+        localPath = await _pdfStorage.getFilePath(pdf.id) ?? localPath;
+      } else if (!kIsWeb && localPath != null && localPath.isNotEmpty) {
+        final file = File(localPath);
+        if (await file.exists()) {
+          pdfBytes = await file.readAsBytes();
+        }
+      }
+      if (!ref.mounted) return;
+
+      if (pdfBytes == null &&
+          (localPath == null ||
+              localPath.isEmpty ||
+              (!kIsWeb && !File(localPath).existsSync()))) {
         state = ReaderState(
           status: ReaderStatus.error,
           pdfId: pdf.id,
           title: pdf.title,
           fileName: pdf.fileName,
-          errorMessage: 'This PDF is no longer available.\n\nThe local file could not be found.',
+          errorMessage:
+              'This PDF is no longer available.\n\nThe document could not be found.',
           isFileAvailable: false,
         );
         return;
@@ -99,6 +113,7 @@ class ReaderController extends Notifier<ReaderState> {
 
       // Update lastReadAt and reading progress on open
       await _pdfRepository.updateReadingProgress(pdf.id, restoredPage);
+      if (!ref.mounted) return;
 
       state = ReaderState(
         status: ReaderStatus.ready,
@@ -106,6 +121,7 @@ class ReaderController extends Notifier<ReaderState> {
         title: pdf.title,
         fileName: pdf.fileName,
         localPath: localPath,
+        pdfBytes: pdfBytes,
         coverPath: pdf.coverPath,
         folderId: pdf.folderId,
         fileSize: pdf.fileSize,
@@ -124,6 +140,7 @@ class ReaderController extends Notifier<ReaderState> {
         tag: 'Reader',
       );
     } catch (e, stack) {
+      if (!ref.mounted) return;
       AppLogger.error(
         'Failed to load PDF: $e',
         tag: 'Reader',
@@ -305,8 +322,8 @@ class ReaderController extends Notifier<ReaderState> {
 
   /// Writes the current page to the database.
   Future<void> _persistPosition(int page) async {
-    final currentPdfId = state.pdfId;
-    if (currentPdfId == null || page < 1) return;
+    final currentPdfId = state.pdfId ?? pdfId;
+    if (page < 1) return;
 
     try {
       await _pdfRepository.updateReadingProgress(currentPdfId, page);
@@ -326,10 +343,11 @@ class ReaderController extends Notifier<ReaderState> {
 
   /// Removes the PDF from the library (for missing-file cleanup).
   Future<void> deletePdf() async {
-    final currentPdfId = state.pdfId;
-    if (currentPdfId == null) return;
+    final currentPdfId = state.pdfId ?? pdfId;
 
     try {
+      await _pdfStorage.deletePdf(currentPdfId);
+      await _pdfStorage.deleteCover(currentPdfId);
       await _pdfRepository.deletePdf(currentPdfId);
       AppLogger.info(
         'Removed PDF from library: "${state.title}"',

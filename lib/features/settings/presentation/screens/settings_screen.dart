@@ -22,166 +22,172 @@ class SettingsScreen extends ConsumerWidget {
           ? AppColors.darkBackground
           : AppColors.lightBackground,
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.xxl,
-            vertical: AppSpacing.xl,
-          ),
-          children: [
-            const AppSectionHeader(
-              eyebrow: 'PREFERENCES',
-              title: 'Settings',
-              subtitle:
-                  'Manage appearance, theme mode, and reading environment.',
-              showBottomBorder: true,
-            ),
-            const SizedBox(height: AppSpacing.xl),
-
-            // Appearance Section
-            Text(
-              'APPEARANCE',
-              style: TextStyle(
-                fontSize: 11.0,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.2,
-                color: isDark
-                    ? AppColors.darkTextSecondary
-                    : AppColors.lightTextSecondary,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 860),
+            child: ListView(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.xxl,
+                vertical: AppSpacing.xl,
               ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            AppCard(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Theme Mode',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.xxs),
-                  Text(
-                    'Choose between light paper, dark charcoal, or system default.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: isDark
-                          ? AppColors.darkTextSecondary
-                          : AppColors.lightTextSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
+              children: [
+                const AppSectionHeader(
+                  eyebrow: 'PREFERENCES',
+                  title: 'Settings',
+                  subtitle:
+                      'Manage appearance, theme mode, and reading environment.',
+                  showBottomBorder: true,
+                ),
+                const SizedBox(height: AppSpacing.xl),
 
-                  // Responsive Theme Selector
-                  Row(
+                // Appearance Section
+                Text(
+                  'APPEARANCE',
+                  style: TextStyle(
+                    fontSize: 11.0,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.2,
+                    color: isDark
+                        ? AppColors.darkTextSecondary
+                        : AppColors.lightTextSecondary,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                AppCard(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: _ThemeOptionCard(
-                          label: 'System',
-                          icon: Icons.brightness_auto_rounded,
-                          isSelected: themeMode == ThemeMode.system,
-                          onTap: () => ref
-                              .read(themeModeProvider.notifier)
-                              .setThemeMode(ThemeMode.system),
+                      Text(
+                        'Theme Mode',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: _ThemeOptionCard(
-                          label: 'Light',
-                          icon: Icons.wb_sunny_outlined,
-                          isSelected: themeMode == ThemeMode.light,
-                          onTap: () => ref
-                              .read(themeModeProvider.notifier)
-                              .setThemeMode(ThemeMode.light),
+                      const SizedBox(height: AppSpacing.xxs),
+                      Text(
+                        'Choose between light paper, dark charcoal, or system default.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: isDark
+                              ? AppColors.darkTextSecondary
+                              : AppColors.lightTextSecondary,
                         ),
                       ),
-                      const SizedBox(width: AppSpacing.sm),
+                      const SizedBox(height: AppSpacing.md),
+
+                      // Responsive Theme Selector
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _ThemeOptionCard(
+                              label: 'System',
+                              icon: Icons.brightness_auto_rounded,
+                              isSelected: themeMode == ThemeMode.system,
+                              onTap: () => ref
+                                  .read(themeModeProvider.notifier)
+                                  .setThemeMode(ThemeMode.system),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: _ThemeOptionCard(
+                              label: 'Light',
+                              icon: Icons.wb_sunny_outlined,
+                              isSelected: themeMode == ThemeMode.light,
+                              onTap: () => ref
+                                  .read(themeModeProvider.notifier)
+                                  .setThemeMode(ThemeMode.light),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: _ThemeOptionCard(
+                              label: 'Dark',
+                              icon: Icons.nightlight_outlined,
+                              isSelected: themeMode == ThemeMode.dark,
+                              onTap: () => ref
+                                  .read(themeModeProvider.notifier)
+                                  .setThemeMode(ThemeMode.dark),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: AppSpacing.xxl),
+
+                // About Section
+                Text(
+                  'APPLICATION',
+                  style: TextStyle(
+                    fontSize: 11.0,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.2,
+                    color: isDark
+                        ? AppColors.darkTextSecondary
+                        : AppColors.lightTextSecondary,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                AppCard(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? AppColors.darkSurfaceSubtle
+                              : AppColors.lightSurfaceSubtle,
+                          borderRadius: AppSpacing.roundedSm,
+                          border: Border.all(
+                            color: isDark
+                                ? AppColors.darkBorder
+                                : AppColors.lightBorder,
+                            width: 1.0,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.menu_book_rounded,
+                          size: 20,
+                          color: isDark
+                              ? AppColors.darkTextPrimary
+                              : AppColors.strongCharcoal,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.md),
                       Expanded(
-                        child: _ThemeOptionCard(
-                          label: 'Dark',
-                          icon: Icons.nightlight_outlined,
-                          isSelected: themeMode == ThemeMode.dark,
-                          onTap: () => ref
-                              .read(themeModeProvider.notifier)
-                              .setThemeMode(ThemeMode.dark),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              AppConstants.appName,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Version ${AppConstants.appVersion} • Local-First Personal Bookshelf',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: isDark
+                                    ? AppColors.darkTextSecondary
+                                    : AppColors.lightTextSecondary,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-
-            const SizedBox(height: AppSpacing.xxl),
-
-            // About Section
-            Text(
-              'APPLICATION',
-              style: TextStyle(
-                fontSize: 11.0,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.2,
-                color: isDark
-                    ? AppColors.darkTextSecondary
-                    : AppColors.lightTextSecondary,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            AppCard(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? AppColors.darkSurfaceSubtle
-                          : AppColors.lightSurfaceSubtle,
-                      borderRadius: AppSpacing.roundedSm,
-                      border: Border.all(
-                        color: isDark
-                            ? AppColors.darkBorder
-                            : AppColors.lightBorder,
-                        width: 1.0,
-                      ),
-                    ),
-                    child: Icon(
-                      Icons.menu_book_rounded,
-                      size: 20,
-                      color: isDark
-                          ? AppColors.darkTextPrimary
-                          : AppColors.strongCharcoal,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          AppConstants.appName,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Version ${AppConstants.appVersion} • Local-First Personal Bookshelf',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: isDark
-                                ? AppColors.darkTextSecondary
-                                : AppColors.lightTextSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

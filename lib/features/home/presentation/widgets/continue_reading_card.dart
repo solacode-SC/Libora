@@ -1,15 +1,18 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/storage/pdf_storage_provider.dart';
 import '../../../../core/widgets/app_badge.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../library/domain/models/pdf_item.dart';
 
 /// Editorial card highlighting in-progress PDFs on the Home dashboard.
-class ContinueReadingCard extends StatelessWidget {
+class ContinueReadingCard extends ConsumerWidget {
   final PdfItem pdf;
   final VoidCallback onTap;
 
@@ -20,7 +23,7 @@ class ContinueReadingCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
@@ -35,7 +38,9 @@ class ContinueReadingCard extends StatelessWidget {
         : 0.0;
     final progressPercent = (progressFraction * 100).round();
 
-    final hasCover = pdf.coverPath != null && File(pdf.coverPath!).existsSync();
+    final hasCover = !kIsWeb &&
+        pdf.coverPath != null &&
+        File(pdf.coverPath!).existsSync();
 
     return AppCard(
       onTap: onTap,
@@ -60,13 +65,34 @@ class ContinueReadingCard extends StatelessWidget {
                 clipBehavior: Clip.antiAlias,
                 child: hasCover
                     ? Image.file(File(pdf.coverPath!), fit: BoxFit.cover)
-                    : Icon(
-                        Icons.menu_book_rounded,
-                        size: 22,
-                        color: isDark
-                            ? AppColors.darkTextMuted
-                            : AppColors.lightTextMuted,
-                      ),
+                    : (kIsWeb
+                        ? FutureBuilder<Uint8List?>(
+                            future: ref
+                                .watch(pdfStorageServiceProvider)
+                                .readCover(pdf.id),
+                            builder: (context, snapshot) {
+                              if (snapshot.hasData && snapshot.data != null) {
+                                return Image.memory(
+                                  snapshot.data!,
+                                  fit: BoxFit.cover,
+                                );
+                              }
+                              return Icon(
+                                Icons.menu_book_rounded,
+                                size: 22,
+                                color: isDark
+                                    ? AppColors.darkTextMuted
+                                    : AppColors.lightTextMuted,
+                              );
+                            },
+                          )
+                        : Icon(
+                            Icons.menu_book_rounded,
+                            size: 22,
+                            color: isDark
+                                ? AppColors.darkTextMuted
+                                : AppColors.lightTextMuted,
+                          )),
               ),
               const SizedBox(width: AppSpacing.md),
 

@@ -281,12 +281,13 @@ class LibraryDialogs {
     );
   }
 
-  /// Prompts the user to confirm deletion of a PDF from the library.
-  static Future<bool> showConfirmDeleteDialog(
+  /// Prompts the user to confirm deletion of a PDF with options to delete locally or both locally and on GitHub.
+  static Future<PdfDeletionChoice> showDeletePdfChoiceDialog(
     BuildContext context, {
     required String title,
+    required bool isSyncedToGitHub,
   }) async {
-    final result = await showDialog<bool>(
+    final choice = await showDialog<PdfDeletionChoice>(
       context: context,
       builder: (context) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -307,14 +308,50 @@ class LibraryDialogs {
                   : AppColors.strongCharcoal,
             ),
           ),
-          content: Text(
-            'This will remove the PDF from Libora\'s library and delete its local copy.',
-            style: TextStyle(
-              color: isDark
-                  ? AppColors.darkTextSecondary
-                  : AppColors.lightTextSecondary,
-              fontSize: 14,
-            ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isSyncedToGitHub
+                    ? 'This PDF is synchronized with your GitHub repository. Choose how you want to delete it:'
+                    : 'This will remove the PDF from Libora\'s library and delete its local copy.',
+                style: TextStyle(
+                  color: isDark
+                      ? AppColors.darkTextSecondary
+                      : AppColors.lightTextSecondary,
+                  fontSize: 14,
+                ),
+              ),
+              if (isSyncedToGitHub) ...[
+                const SizedBox(height: AppSpacing.md),
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkSurfaceSubtle : AppColors.lightSurfaceSubtle,
+                    borderRadius: AppSpacing.roundedSm,
+                    border: Border.all(
+                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.cloud_queue_rounded, size: 16),
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(
+                        child: Text(
+                          'Remote file can be retained or removed from your GitHub repository.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
           ),
           actionsPadding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.lg,
@@ -323,16 +360,44 @@ class LibraryDialogs {
           actions: [
             AppButton.ghost(
               label: 'Cancel',
-              onPressed: () => Navigator.of(context).pop(false),
+              onPressed: () => Navigator.of(context).pop(PdfDeletionChoice.cancel),
             ),
+            if (isSyncedToGitHub)
+              AppButton.secondary(
+                label: 'Libora Only',
+                onPressed: () => Navigator.of(context).pop(PdfDeletionChoice.localOnly),
+              ),
             AppButton.primary(
-              label: 'Remove',
-              onPressed: () => Navigator.of(context).pop(true),
+              label: isSyncedToGitHub ? 'Libora & GitHub' : 'Remove',
+              onPressed: () => Navigator.of(context).pop(
+                isSyncedToGitHub ? PdfDeletionChoice.both : PdfDeletionChoice.localOnly,
+              ),
             ),
           ],
         );
       },
     );
-    return result ?? false;
+
+    return choice ?? PdfDeletionChoice.cancel;
+  }
+
+  /// Prompts the user to confirm deletion of a PDF from the library.
+  static Future<bool> showConfirmDeleteDialog(
+    BuildContext context, {
+    required String title,
+  }) async {
+    final choice = await showDeletePdfChoiceDialog(
+      context,
+      title: title,
+      isSyncedToGitHub: false,
+    );
+    return choice != PdfDeletionChoice.cancel;
   }
 }
+
+enum PdfDeletionChoice {
+  cancel,
+  localOnly,
+  both,
+}
+

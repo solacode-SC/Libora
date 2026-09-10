@@ -1,14 +1,20 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
+import '../../../../core/storage/pdf_storage_provider.dart';
+import '../../../../core/storage/pdf_storage_service.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../../core/services/default_pdf_file_service.dart';
 import '../../../../core/services/default_pdf_thumbnail_service.dart';
 import '../../../../core/services/local_storage_service.dart';
 import '../../../folders/data/repositories/folder_repository.dart';
+import '../../../github/data/repositories/drift_github_repository.dart';
+import '../../../github/domain/models/sync_status.dart';
+import '../../../github/domain/repositories/github_repository.dart';
+import '../../../github/presentation/controllers/sync_controller.dart';
 import '../../data/repositories/pdf_repository.dart';
 import '../../domain/models/pdf_item.dart';
 import 'library_state.dart';
@@ -18,8 +24,10 @@ class LibraryController extends Notifier<LibraryState> {
   late PdfRepository _pdfRepository;
   late FolderRepository _folderRepository;
   late LocalStorageService _storageService;
+  late PdfStorageService _pdfStorage;
   late DefaultPdfFileService _fileService;
   late DefaultPdfThumbnailService _thumbnailService;
+  late GitHubRepository _gitHubRepository;
   final Uuid _uuid = const Uuid();
 
   StreamSubscription<List<PdfItem>>? _pdfsSub;
@@ -30,8 +38,10 @@ class LibraryController extends Notifier<LibraryState> {
     _pdfRepository = ref.watch(pdfRepositoryProvider);
     _folderRepository = ref.watch(folderRepositoryProvider);
     _storageService = ref.watch(storageServiceProvider);
+    _pdfStorage = ref.watch(pdfStorageServiceProvider);
     _fileService = ref.watch(pdfFileServiceProvider);
     _thumbnailService = ref.watch(pdfThumbnailServiceProvider);
+    _gitHubRepository = ref.watch(gitHubRepositoryProvider);
 
     _pdfsSub?.cancel();
     _foldersSub?.cancel();
@@ -77,42 +87,41 @@ class LibraryController extends Notifier<LibraryState> {
   Future<void> importPdfs() async {
     try {
       AppLogger.info('Launching file picker for PDF import...');
-      final pickedFiles = await _fileService.pickPdfFiles();
-      if (pickedFiles.isEmpty) {
+      final pickedDocs = await _fileService.pickPdfs();
+      if (pickedDocs.isEmpty) {
         AppLogger.info('No PDF files selected (cancelled or empty).');
         return;
       }
 
       state = state.copyWith(
         isImporting: true,
-        importProgress: () => 'Importing 0 of ${pickedFiles.length}...',
+        importProgress: () => 'Importing 0 of ${pickedDocs.length}...',
         userNotice: () => null,
         errorMessage: () => null,
       );
 
-      final coversDir = await _storageService.getCoversDirectory();
       final duplicateNames = <String>[];
       int importedCount = 0;
       int invalidCount = 0;
 
-      for (int i = 0; i < pickedFiles.length; i++) {
-        final file = pickedFiles[i];
-        final fileName = p.basename(file.path);
+      for (int i = 0; i < pickedDocs.length; i++) {
+        final doc = pickedDocs[i];
+        final fileName = doc.name;
 
         state = state.copyWith(
           importProgress: () =>
-              'Importing ${i + 1} of ${pickedFiles.length}: $fileName...',
+              'Importing ${i + 1} of ${pickedDocs.length}: $fileName...',
         );
 
-        final isValid = await _fileService.validatePdf(file);
+        final isValid = _fileService.validateBytes(doc.bytes);
         if (!isValid) {
-          AppLogger.warning('Skipping invalid PDF: ${file.path}');
+          AppLogger.warning('Skipping invalid PDF: $fileName');
           invalidCount++;
           continue;
         }
 
-        final fileSize = await file.length();
-        final hash = await _fileService.computeFileHash(file);
+        final fileSize = doc.bytes.length;
+        final hash = _fileService.computeBytesHash(doc.bytes);
 
         // Check for duplicate
         final duplicate = await _pdfRepository.findDuplicate(
@@ -128,38 +137,38 @@ class LibraryController extends Notifier<LibraryState> {
         }
 
         final pdfId = _uuid.v4();
-        // Copy into managed storage
-        final managedFile = await _storageService.copyToManagedStorage(
-          file,
-          pdfId,
+
+        // Save to PdfStorageService
+        await _pdfStorage.savePdf(
+          id: pdfId,
+          bytes: doc.bytes,
+          fileName: fileName,
         );
 
-        if (!await managedFile.exists() || (await managedFile.length()) == 0) {
-          AppLogger.error(
-            'Failed to copy file to managed storage: ${file.path}',
-          );
-          continue;
-        }
+        final localPath = await _pdfStorage.getFilePath(pdfId);
 
-        final metadata = await _fileService.extractMetadata(
-          managedFile,
+        final metadata = await _fileService.extractMetadataFromBytes(
+          doc.bytes,
           originalFileName: fileName,
         );
 
         // Generate cover thumbnail
-        final targetCoverPath = p.join(coversDir.path, '$pdfId.jpg');
-        final coverFile = await _thumbnailService.generateCoverImage(
-          pdfFile: managedFile,
-          destinationPath: targetCoverPath,
+        final coverBytes = await _thumbnailService.generateCoverBytes(
+          pdfBytes: doc.bytes,
         );
+        String? coverPath;
+        if (coverBytes != null) {
+          await _pdfStorage.saveCover(id: pdfId, bytes: coverBytes);
+          coverPath = await _pdfStorage.getCoverPath(pdfId);
+        }
 
         final now = DateTime.now();
         final pdfItem = PdfItem(
           id: pdfId,
           title: metadata.title,
           fileName: fileName,
-          localPath: managedFile.path,
-          coverPath: coverFile?.path,
+          localPath: localPath,
+          coverPath: coverPath,
           pageCount: metadata.pageCount > 0 ? metadata.pageCount : null,
           fileSize: fileSize,
           folderId: state.selectedFolderId,
@@ -205,6 +214,14 @@ class LibraryController extends Notifier<LibraryState> {
         selectedFilter: LibraryFilter.all,
         searchQuery: '',
       );
+
+      // If GitHub repository is active, trigger background sync for new items
+      if (importedCount > 0) {
+        final activeRepo = await _gitHubRepository.getSelectedRepository();
+        if (activeRepo != null) {
+          unawaited(ref.read(syncControllerProvider.notifier).syncNow());
+        }
+      }
     } catch (e, stack) {
       AppLogger.error('Failed to import PDFs: $e', error: e, stackTrace: stack);
       state = state.copyWith(
@@ -216,13 +233,31 @@ class LibraryController extends Notifier<LibraryState> {
   }
 
   /// Removes a PDF from Libora, deleting its managed file, cached cover, and database entry.
-  Future<void> deletePdf(String id) async {
+  /// If [deleteFromRemote] is true, also marks remote file on GitHub for deletion and triggers sync.
+  Future<void> deletePdf(String id, {bool deleteFromRemote = false}) async {
     try {
+      await _pdfStorage.deletePdf(id);
+      await _pdfStorage.deleteCover(id);
+
       final pdf = await _pdfRepository.getPdfById(id);
-      if (pdf != null) {
+      if (pdf != null && !kIsWeb) {
         await _storageService.deleteManagedFile(pdf.localPath);
         await _storageService.deleteManagedFile(pdf.coverPath);
       }
+
+      if (deleteFromRemote) {
+        final existingMeta = await _gitHubRepository.getSyncMetadataForPdf(id);
+        if (existingMeta != null) {
+          await _gitHubRepository.updateSyncStatus(
+            existingMeta.id,
+            SyncStatus.deletePending,
+          );
+          unawaited(ref.read(syncControllerProvider.notifier).syncNow());
+        }
+      } else {
+        await _gitHubRepository.deleteSyncMetadataForPdf(id);
+      }
+
       await _pdfRepository.deletePdf(id);
       await refresh();
     } catch (e) {
@@ -254,6 +289,11 @@ class LibraryController extends Notifier<LibraryState> {
   Future<void> moveToFolder(String id, String? folderId) async {
     await _pdfRepository.moveToFolder(id, folderId);
     await refresh();
+
+    final activeRepo = await _gitHubRepository.getSelectedRepository();
+    if (activeRepo != null) {
+      unawaited(ref.read(syncControllerProvider.notifier).syncNow());
+    }
   }
 
   /// Sets the live search query string.

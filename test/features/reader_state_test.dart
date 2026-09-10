@@ -93,6 +93,24 @@ void main() {
       }
     });
 
+    Future<ReaderState> waitForReaderReady(
+      ProviderContainer container,
+      String pdfId,
+    ) async {
+      final sub = container.listen(readerControllerProvider(pdfId), (_, _) {});
+      final stopwatch = Stopwatch()..start();
+      while (stopwatch.elapsedMilliseconds < 3000) {
+        final current = container.read(readerControllerProvider(pdfId));
+        if (current.status != ReaderStatus.loading) {
+          sub.close();
+          return current;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      sub.close();
+      return container.read(readerControllerProvider(pdfId));
+    }
+
     test(
       'restores previously saved reading position (lastPage = 127)',
       () async {
@@ -117,14 +135,7 @@ void main() {
         );
         addTearDown(container.dispose);
 
-        // Read controller and wait for async loading
-        container.read(readerControllerProvider('pdf-restore-test'));
-        // Allow async load to complete
-        await Future<void>.delayed(const Duration(milliseconds: 50));
-
-        final state = container.read(
-          readerControllerProvider('pdf-restore-test'),
-        );
+        final state = await waitForReaderReady(container, 'pdf-restore-test');
         expect(state.status, equals(ReaderStatus.ready));
         expect(state.currentPage, equals(127));
         expect(state.totalPages, equals(464));
@@ -152,12 +163,7 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      container.read(readerControllerProvider('pdf-missing-file'));
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-
-      final state = container.read(
-        readerControllerProvider('pdf-missing-file'),
-      );
+      final state = await waitForReaderReady(container, 'pdf-missing-file');
       expect(state.status, equals(ReaderStatus.error));
       expect(state.isFileAvailable, isFalse);
       expect(state.errorMessage, contains('no longer available'));
@@ -188,7 +194,7 @@ void main() {
       final controller = container.read(
         readerControllerProvider('pdf-persist-test').notifier,
       );
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await waitForReaderReady(container, 'pdf-persist-test');
 
       // Change page to 128
       controller.onPageChanged(128);
@@ -225,7 +231,7 @@ void main() {
         final controller = container.read(
           readerControllerProvider('pdf-delete-test').notifier,
         );
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await waitForReaderReady(container, 'pdf-delete-test');
 
         await controller.deletePdf();
 

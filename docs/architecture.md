@@ -161,7 +161,7 @@ class RemotePdfItem {
 
 ---
 
-## 6. Database Schema (Drift / SQLite — Schema v3)
+## 6. Database Schema (Drift / SQLite — Schema v4)
 
 ### `pdfs` Table
 - `id` (TEXT, Primary Key)
@@ -197,6 +197,37 @@ class RemotePdfItem {
 - `created_at` (DATETIME, NOT NULL)
 - `updated_at` (DATETIME, NULLABLE)
 - **Constraint**: Unique on `(pdf_id, page_number)` — guarantees 1 bookmark per page per PDF.
+
+### `git_hub_accounts` Table
+- `id` (TEXT, Primary Key)
+- `username` (TEXT, NOT NULL)
+- `name` (TEXT, NULLABLE)
+- `avatar_url` (TEXT, NULLABLE)
+- `created_at` (DATETIME, NOT NULL)
+- `updated_at` (DATETIME, NOT NULL)
+
+### `git_hub_repositories` Table
+- `id` (TEXT, Primary Key)
+- `account_id` (TEXT, NOT NULL, Foreign Key -> `git_hub_accounts.id`, `ON DELETE CASCADE`)
+- `name` (TEXT, NOT NULL)
+- `full_name` (TEXT, NOT NULL)
+- `default_branch` (TEXT, NOT NULL, DEFAULT 'main')
+- `is_private` (BOOLEAN, NOT NULL, DEFAULT FALSE)
+- `is_selected` (BOOLEAN, NOT NULL, DEFAULT FALSE)
+- `last_synced_at` (DATETIME, NULLABLE)
+- `created_at` (DATETIME, NOT NULL)
+- `updated_at` (DATETIME, NOT NULL)
+
+### `sync_metadata` Table
+- `id` (TEXT, Primary Key)
+- `pdf_id` (TEXT, NOT NULL, Unique, Foreign Key -> `pdfs.id`, `ON DELETE CASCADE`)
+- `remote_path` (TEXT, NOT NULL)
+- `remote_sha` (TEXT, NULLABLE)
+- `local_hash` (TEXT, NULLABLE)
+- `sync_status` (TEXT, NOT NULL, DEFAULT 'synced') — 'synced' | 'pending' | 'downloading' | 'conflicted'
+- `last_synced_at` (DATETIME, NULLABLE)
+- `created_at` (DATETIME, NOT NULL)
+- `updated_at` (DATETIME, NOT NULL)
 
 ---
 
@@ -297,9 +328,13 @@ The reader provides a full-featured, offline, and visually quiet reading experie
 
 ---
 
-## 11. Future GitHub Integration
+## 11. GitHub Synchronization & Mirroring Architecture (Phase 4)
 
 A connected GitHub repository adheres to the following structural convention:
+### 11.1 Architectural Principles
+- **Direct PAT Authentication**: Users authenticate by supplying a Personal Access Token (classic `repo` scope or fine-grained repository permissions) directly into the app. There are no third-party backends, OAuth callback servers, or cloud intermediaries.
+- **Strict Credential Isolation**: The PAT is stored exclusively in OS-level secure storage (`FlutterSecureStorage` using `libsecret` on Linux, Keychain on macOS/iOS, KeyStore on Android, and DPAPI on Windows). Tokens are NEVER written to SQLite, persistent app settings, files, error logs, or debug console output.
+- **Local-First Safety Invariant**: Disconnecting from GitHub, losing network connectivity, or encountering remote file deletions will NEVER automatically delete or corrupt local PDFs. Local documents remain fully intact. Remote deletions only affect local storage if explicitly selected by the user via the dual-choice deletion dialog.
 
 ```text
 my-pdf-library/
@@ -316,6 +351,101 @@ my-pdf-library/
         ├── Chapter 001.pdf
         └── Chapter 002.pdf
 ```
+### 11.2 Deterministic Folder Mirroring (`FolderPathResolver`)
+Libora establishes a 1-to-1 deterministic mapping between the local SQLite folder hierarchy and remote GitHub repository paths:
+- **Local -> Remote**: `FolderPathResolver.resolveRemotePath(pdf, folderPath)`
+  - Root documents map to `{fileName}.pdf` in the repository root (e.g. `Clean Code.pdf`).
+  - Nested documents map to `{folderPath}/{fileName}.pdf` (e.g. `Books/Tech/Clean Code.pdf`).
+- **Remote -> Local**: `FolderPathResolver.resolveFolderPath(remotePath)`
+  - Reconstructs intermediate folder entities in the local database matching the path hierarchy (e.g. `Books/Tech/` -> creates or finds `Books` folder, then `Tech` child folder with `parentId`).
+  - Leaves root files with `folderId = null`.
 
 The Explore view downloads only metadata (or parses repository directory tree via GitHub Git Trees API) and cover images, allowing smooth browsing without pulling multi-gigabyte PDF archives until requested by the user.
+### 11.3 Idempotent Two-Way Sync Engine (`LibrarySyncEngine`)
+The sync engine performs an atomic, idempotent five-step synchronization cycle:
+1. **Remote Tree Scan**: Fetches the recursive Git tree (`GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1`) and parses all `.pdf` blobs along with their Git SHA-1 hashes.
+2. **Local-to-Remote Reconciliation**:
+   - Compares local PDFs against remote tree paths and `sync_metadata` records.
+   - New local files are uploaded to GitHub via the Contents API (`PUT /repos/{owner}/{repo}/contents/{path}`).
+   - If a remote file was modified (`remote_sha` changed) while the local file also changed, conflict detection flags the record as `SyncStatus.conflicted` while preserving the local copy.
+3. **Remote-to-Local Reconciliation**:
+   - Detects remote PDFs not yet present locally.
+   - Downloads PDF bytes, writes to sandboxed local storage (`<docs>/libora/library/pdfs/<uuid>.pdf`), computes SHA-256 hash, extracts page count, and generates high-res cover thumbnail via `PdfThumbnailService`.
+   - Inserts local `PdfItem` record with `source = 'github'`.
+4. **Path & Hierarchy Reconciliation**:
+   - If a local file moved to another folder or was renamed, the sync engine updates `sync_metadata.remote_path` and schedules remote movement.
+5. **Metadata Update & Zero-Write Idempotency**:
+   - Updates `sync_metadata` with latest `remote_sha`, `local_hash`, `sync_status = 'synced'`, and `last_synced_at`.
+   - On repeat syncs where no local or remote files changed, **0 API write calls and 0 disk writes** are executed.
+
+### 11.4 Conflict Resolution & Deletion Workflows
+- **Conflict Handling**: When a concurrent change occurs both locally and remotely, Libora marks the document as `SyncStatus.conflicted` in `sync_metadata`. Local modifications are never blindly overwritten.
+- **Dual-Choice Deletion**: When deleting a PDF, the user is presented with two explicit choices:
+  1. `Delete from Libora only`: Deletes local file and SQLite record; leaves the remote repository copy untouched.
+  2. `Delete from Libora and GitHub`: Deletes local file, SQLite record, and sends a `DELETE /repos/{owner}/{repo}/contents/{path}` request to remove the file from GitHub.
+
+### 11.5 State Management & UI Integration
+- `gitHubConnectionControllerProvider` (`AsyncNotifier<GitHubConnectionState>`): Handles token validation against `GET /user`, saves token securely, and exposes connected account profile.
+- `gitHubRepositoryControllerProvider` (`AsyncNotifier<GitHubRepositoryState>`): Lists accessible repositories (`GET /user/repos`), manages active repository selection, and creates new repositories if needed.
+- `syncControllerProvider` (`AsyncNotifier<SyncProgress?>`): Manages sync execution, streams progress stages (`SyncStage.scanning`, `SyncStage.uploading`, `SyncStage.downloading`, etc.), and returns `SyncResult`.
+- `gitHubSyncMetadataForPdfProvider(pdfId)`: Streams `SyncMetadataItem?` to render real-time status badges (`synced`, `pending`, `downloading`, `conflicted`) on `PdfCard` and in the Library toolbar.
+
+---
+
+## 12. Flutter Web Local PDF Storage & Reader Compatibility (Phase 3.5)
+
+### 12.1 Web Storage Challenge & Design Strategy
+Flutter Web executes in browser JavaScript / WASM sandbox environments where traditional desktop POSIX filesystem APIs (`dart:io` `File`, `Directory`) throw `UnsupportedError`. Previously, Libora checked `File(pdf.localPath).existsSync()`, which caused:
+- Local PDF cards on Web to appear disabled or marked with missing-file warning badges.
+- Imported PDFs to be lost on browser tab refresh.
+- PDF reader crashes attempting to load via `PdfViewer.file()`.
+
+To resolve this without branching presentation logic or compromising the desktop experience, Libora introduces a unified storage abstraction layer: `PdfStorageService`.
+
+### 12.2 Unified Storage Abstraction (`PdfStorageService`)
+`PdfStorageService` (`lib/core/storage/pdf_storage_service.dart`) provides an asynchronous binary storage contract for document files and generated cover images:
+```dart
+abstract class PdfStorageService {
+  Future<void> initialize();
+  Future<String> savePdf(String id, Uint8List bytes, {String? fileName});
+  Future<Uint8List?> readPdf(String id);
+  Future<bool> exists(String id);
+  Future<void> deletePdf(String id);
+  Future<void> movePdf(String oldId, String newId);
+  Future<int?> getFileSize(String id);
+  Future<String?> getFilePath(String id);
+
+  Future<String> saveCover(String id, Uint8List bytes);
+  Future<Uint8List?> readCover(String id);
+  Future<void> deleteCover(String id);
+  Future<String?> getCoverPath(String id);
+}
+```
+
+### 12.3 Platform Implementations
+Using Dart's conditional imports (`pdf_storage_factory.dart`):
+1. **`WebPdfStorage` (`lib/core/storage/web/web_pdf_storage.dart`)**:
+   - Backed by browser **IndexedDB** using modern `package:web` and `dart:js_interop`.
+   - Uses dedicated database `libora_storage` (version 1) with two key-value object stores:
+     - `pdfs`: Stores raw PDF binary bytes keyed by document `id`.
+     - `covers`: Stores rendered JPEG thumbnail bytes keyed by cover/document `id`.
+   - Fully persistent across browser reloads and sessions.
+2. **`DesktopPdfStorage` (`lib/core/storage/desktop/desktop_pdf_storage.dart`)**:
+   - Wraps the existing deterministic filesystem layout (`<docs>/libora/library/pdfs/<id>.pdf` and `covers/<id>.jpg`).
+   - Ensures 100% backward compatibility for desktop paths and existing files.
+3. **`MemoryPdfStorage` (`lib/core/storage/memory/memory_pdf_storage.dart`)**:
+   - In-memory map storage used for fast, isolated unit and integration testing without disk or browser dependencies.
+
+### 12.4 PDF Reader Compatibility on Web
+- **Binary Stream Loading**: `ReaderController` loads the document into `ReaderState.pdfBytes` via `PdfStorageService.readPdf(id)`.
+- **Dual Viewer Support**:
+  - Web: Renders via `PdfViewer.data(readerState.pdfBytes)`.
+  - Desktop/Mobile: Renders via `PdfViewer.file(localPath)`.
+- **Initialization**: `pdfrxFlutterInitialize()` is invoked during `main()` setup to register web rendering workers and canvas decoders.
+- **Reading Progress & Bookmarks**: Stored directly in Drift SQLite (Schema v4) with 500ms debouncing, identical to desktop.
+
+### 12.5 Cover Rendering & UI Invariants
+- `PdfCard` and `ContinueReadingCard` read cover image bytes asynchronously through `pdfStorageServiceProvider.readCover(coverId)`.
+- When byte streams are returned, `Image.memory` displays the cached cover. On desktop fallback, `Image.file` is utilized.
+- All cards remain interactive, selectable, and searchable on Web.
 

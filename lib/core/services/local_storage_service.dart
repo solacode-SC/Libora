@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -21,13 +22,23 @@ class LocalStorageService implements StorageService {
   @override
   Future<Directory> getAppDocumentsDirectory() async {
     if (_baseDir != null) return _baseDir!;
-    final docs = await getApplicationDocumentsDirectory();
-    final appDir = Directory(p.join(docs.path, 'libora'));
-    if (!await appDir.exists()) {
-      await appDir.create(recursive: true);
+    try {
+      final docs = await getApplicationDocumentsDirectory();
+      final appDir = Directory(p.join(docs.path, 'libora'));
+      if (!await appDir.exists()) {
+        await appDir.create(recursive: true);
+      }
+      _baseDir = appDir;
+      return appDir;
+    } catch (_) {
+      final temp = Directory.systemTemp;
+      final fallbackDir = Directory(p.join(temp.path, 'libora_app'));
+      if (!await fallbackDir.exists()) {
+        await fallbackDir.create(recursive: true);
+      }
+      _baseDir = fallbackDir;
+      return fallbackDir;
     }
-    _baseDir = appDir;
-    return appDir;
   }
 
   @override
@@ -59,6 +70,7 @@ class LocalStorageService implements StorageService {
 
   /// Safely deletes a file from the managed storage if it exists.
   Future<void> deleteManagedFile(String? path) async {
+    if (kIsWeb) return;
     if (path == null || path.isEmpty) return;
     try {
       final file = File(path);
@@ -72,8 +84,13 @@ class LocalStorageService implements StorageService {
 
   /// Synchronously checks if a file exists on the local filesystem.
   bool fileExists(String? path) {
+    if (kIsWeb) return true;
     if (path == null || path.isEmpty) return false;
-    return File(path).existsSync();
+    try {
+      return File(path).existsSync();
+    } catch (_) {
+      return false;
+    }
   }
 
   @override

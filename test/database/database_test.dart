@@ -148,8 +148,8 @@ void main() {
       },
     );
 
-    test('schema version is 3', () {
-      expect(db.schemaVersion, equals(3));
+    test('schema version is 4', () {
+      expect(db.schemaVersion, equals(4));
     });
 
     test(
@@ -189,5 +189,71 @@ void main() {
         expect(count, equals(1));
       },
     );
+
+    test('GitHubDao manages account, repository, and sync metadata', () async {
+      final now = DateTime.now();
+
+      // Test account
+      await db.gitHubDao.setAccount(
+        GitHubAccountsCompanion.insert(
+          id: 'acc-1',
+          githubUserId: '12345',
+          login: 'octocat',
+          name: const Value('The Octocat'),
+          avatarUrl: const Value('https://github.com/images/error/octocat_happy.gif'),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+
+      final account = await db.gitHubDao.getAccount();
+      expect(account, isNotNull);
+      expect(account?.login, equals('octocat'));
+      expect(account?.name, equals('The Octocat'));
+
+      // Test repository
+      await db.gitHubDao.saveRepository(
+        GitHubRepositoriesCompanion.insert(
+          id: 'repo-1',
+          githubRepoId: const Value('98765'),
+          owner: 'octocat',
+          name: 'my-library',
+          fullName: 'octocat/my-library',
+          defaultBranch: const Value('main'),
+          isPrivate: const Value(true),
+          isSelected: const Value(true),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+
+      final selectedRepo = await db.gitHubDao.getSelectedRepository();
+      expect(selectedRepo, isNotNull);
+      expect(selectedRepo?.fullName, equals('octocat/my-library'));
+      expect(selectedRepo?.isSelected, isTrue);
+
+      // Test sync metadata
+      await db.gitHubDao.insertSyncMetadata(
+        SyncMetadataCompanion.insert(
+          id: 'sync-1',
+          pdfId: 'pdf-1',
+          repositoryId: 'repo-1',
+          remotePath: 'Books/Clean Code.pdf',
+          remoteSha: const Value('sha123'),
+          syncStatus: const Value('synced'),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+
+      final syncMeta = await db.gitHubDao.getSyncMetadataForPdf('pdf-1');
+      expect(syncMeta, isNotNull);
+      expect(syncMeta?.remotePath, equals('Books/Clean Code.pdf'));
+      expect(syncMeta?.syncStatus, equals('synced'));
+
+      // Test delete account
+      await db.gitHubDao.deleteAccount();
+      expect(await db.gitHubDao.getAccount(), isNull);
+    });
   });
 }

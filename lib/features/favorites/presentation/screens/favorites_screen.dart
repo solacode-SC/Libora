@@ -33,110 +33,116 @@ class FavoritesScreen extends ConsumerWidget {
           ? AppColors.darkBackground
           : AppColors.lightBackground,
       body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: isMobile ? AppSpacing.md : AppSpacing.xxl,
-            vertical: isMobile ? AppSpacing.md : AppSpacing.xl,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AppSectionHeader(
-                eyebrow: 'COLLECTIONS',
-                title: 'Favorites',
-                subtitle: 'Your starred books, papers, and documents.',
-                trailing: AppBadge(
-                  label:
-                      '${favoritePdfs.length} ${favoritePdfs.length == 1 ? 'STARRED' : 'STARRED'}',
-                ),
-                showBottomBorder: true,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1400),
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? AppSpacing.md : AppSpacing.xxl,
+                vertical: isMobile ? AppSpacing.md : AppSpacing.xl,
               ),
-              const SizedBox(height: AppSpacing.xl),
-              Expanded(
-                child: favoritePdfs.isEmpty
-                    ? AppEmptyState(
-                        icon: Icons.star_outline_rounded,
-                        title: 'No favorites yet',
-                        description: 'Tap the star icon on any document in your library to keep it pinned here for quick access.',
-                        actionLabel: 'Browse Library',
-                        actionIcon: Icons.local_library_outlined,
-                        onAction: () => context.go('/library'),
-                      )
-                    : LayoutBuilder(
-                        builder: (context, constraints) {
-                          final maxExtent = constraints.maxWidth < 450
-                              ? 160.0
-                              : 210.0;
-                          final childAspectRatio = constraints.maxWidth < 450
-                              ? 0.62
-                              : 0.68;
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AppSectionHeader(
+                    eyebrow: 'COLLECTIONS',
+                    title: 'Favorites',
+                    subtitle: 'Your starred books, papers, and documents.',
+                    trailing: AppBadge(
+                      label:
+                          '${favoritePdfs.length} ${favoritePdfs.length == 1 ? 'STARRED' : 'STARRED'}',
+                    ),
+                    showBottomBorder: true,
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  Expanded(
+                    child: favoritePdfs.isEmpty
+                        ? AppEmptyState(
+                            icon: Icons.star_outline_rounded,
+                            title: 'No favorites yet',
+                            description: 'Tap the star icon on any document in your library to keep it pinned here for quick access.',
+                            actionLabel: 'Browse Library',
+                            actionIcon: Icons.local_library_outlined,
+                            onAction: () => context.go('/library'),
+                          )
+                        : LayoutBuilder(
+                            builder: (context, constraints) {
+                              final maxExtent = constraints.maxWidth < 450
+                                  ? 160.0
+                                  : 210.0;
+                              final childAspectRatio =
+                                  constraints.maxWidth < 450 ? 0.62 : 0.68;
 
-                          return GridView.builder(
-                            itemCount: favoritePdfs.length,
-                            padding: const EdgeInsets.only(
-                              bottom: AppSpacing.xxl,
-                            ),
-                            gridDelegate:
-                                SliverGridDelegateWithMaxCrossAxisExtent(
-                                  maxCrossAxisExtent: maxExtent,
-                                  childAspectRatio: childAspectRatio,
-                                  crossAxisSpacing: AppSpacing.md,
-                                  mainAxisSpacing: AppSpacing.md,
+                              return GridView.builder(
+                                itemCount: favoritePdfs.length,
+                                padding: const EdgeInsets.only(
+                                  bottom: AppSpacing.xxl,
                                 ),
-                            itemBuilder: (context, index) {
-                              final pdf = favoritePdfs[index];
-                              final folder = pdf.folderId != null
-                                  ? foldersMap[pdf.folderId]
-                                  : null;
+                                gridDelegate:
+                                    SliverGridDelegateWithMaxCrossAxisExtent(
+                                      maxCrossAxisExtent: maxExtent,
+                                      childAspectRatio: childAspectRatio,
+                                      crossAxisSpacing: AppSpacing.md,
+                                      mainAxisSpacing: AppSpacing.md,
+                                    ),
+                                itemBuilder: (context, index) {
+                                  final pdf = favoritePdfs[index];
+                                  final folder = pdf.folderId != null
+                                      ? foldersMap[pdf.folderId]
+                                      : null;
 
-                              return PdfCard(
-                                pdf: pdf,
-                                folderName: folder?.name,
-                                onTap: () => context.push('/reader/${pdf.id}'),
-                                onToggleFavorite: () =>
-                                    controller.toggleFavorite(pdf.id),
-                                onRename: () async {
-                                  final newTitle =
-                                      await LibraryDialogs.showRenameDialog(
-                                        context,
-                                        currentTitle: pdf.title,
+                                  return PdfCard(
+                                    pdf: pdf,
+                                    folderName: folder?.name,
+                                    onTap: () =>
+                                        context.push('/reader/${pdf.id}'),
+                                    onToggleFavorite: () =>
+                                        controller.toggleFavorite(pdf.id),
+                                    onRename: () async {
+                                      final newTitle =
+                                          await LibraryDialogs.showRenameDialog(
+                                            context,
+                                            currentTitle: pdf.title,
+                                          );
+                                      if (newTitle != null) {
+                                        await controller.renamePdf(
+                                          pdf.id,
+                                          newTitle,
+                                        );
+                                      }
+                                    },
+                                    onMoveToFolder: () async {
+                                      final selectedFolder =
+                                          await LibraryDialogs.showMoveToFolderDialog(
+                                            context,
+                                            folders: libraryState.folders,
+                                            currentFolderId: pdf.folderId,
+                                          );
+                                      await controller.moveToFolder(
+                                        pdf.id,
+                                        selectedFolder,
                                       );
-                                  if (newTitle != null) {
-                                    await controller.renamePdf(
-                                      pdf.id,
-                                      newTitle,
-                                    );
-                                  }
-                                },
-                                onMoveToFolder: () async {
-                                  final selectedFolder =
-                                      await LibraryDialogs.showMoveToFolderDialog(
-                                        context,
-                                        folders: libraryState.folders,
-                                        currentFolderId: pdf.folderId,
-                                      );
-                                  await controller.moveToFolder(
-                                    pdf.id,
-                                    selectedFolder,
+                                    },
+                                    onDelete: () async {
+                                      final confirm =
+                                          await LibraryDialogs.showConfirmDeleteDialog(
+                                            context,
+                                            title: pdf.title,
+                                          );
+                                      if (confirm) {
+                                        await controller.deletePdf(pdf.id);
+                                      }
+                                    },
                                   );
-                                },
-                                onDelete: () async {
-                                  final confirm =
-                                      await LibraryDialogs.showConfirmDeleteDialog(
-                                        context,
-                                        title: pdf.title,
-                                      );
-                                  if (confirm) {
-                                    await controller.deletePdf(pdf.id);
-                                  }
                                 },
                               );
                             },
-                          );
-                        },
-                      ),
+                          ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

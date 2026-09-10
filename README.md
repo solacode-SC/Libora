@@ -15,6 +15,22 @@ Libora is designed like a personal bookshelf: your local device contains only th
 
 ## Features
 
+### GitHub Sync & Local Library Mirroring (Phase 4)
+- **Direct PAT Authentication**: Connect directly to your GitHub account using a personal access token (PAT) with zero backend, OAuth, or cloud services.
+- **Secure Token Storage**: Tokens are stored exclusively in OS secure storage (`FlutterSecureStorage` with libsecret/Keychain/KeyStore); never in SQLite, logs, or plain text.
+- **Two-Way Idempotent Sync**: Uploads local additions, downloads remote additions, maps folder moves/renames, and achieves 0 writes on repeat syncs without changes.
+- **Local-First Safety Guard**: Protects against silent remote deletions. Remote deletions never purge local documents without explicit user confirmation.
+- **Deterministic Folder Mirroring**: Automatically reflects local folder structures into remote repository paths (e.g. `Books/Tech/Clean Code.pdf`) and vice versa.
+- **Dual-Choice Safe Deletion**: Choose to "Delete from Libora only" (preserves remote copy) or "Delete from Libora and GitHub" when removing files.
+- **Sync Status & Live Progress**: Visual sync badges on PDF cards (synced, pending, downloading, conflicted) and real-time progress indicators across Library and GitHub screens.
+
+### Flutter Web Local PDF Storage & Reader Compatibility (Phase 3.5)
+- **Zero-Backend Browser Storage**: Full local PDF document lifecycle in Chrome using browser **IndexedDB** (`libora_storage` database with `pdfs` and `covers` stores) without requiring a backend or GitHub.
+- **Unified `PdfStorageService` Abstraction**: Clean cross-platform storage layer decoupling Libora from desktop-only filesystem paths (`dart:io`), supporting `DesktopPdfStorage`, `WebPdfStorage`, and `MemoryPdfStorage`.
+- **WASM-Powered Web Reader**: Hardware-accelerated WebAssembly reader powered by `pdfrx` (`PdfViewer.data(bytes)`) rendering directly from IndexedDB byte buffers.
+- **Web File Picker Integration**: Direct in-browser PDF importing with `%PDF-` byte header verification, page counting, and SHA-256 deduplication.
+- **Zero Token Leakage**: GitHub personal access tokens are stored in secure storage on desktop and web, never stored in plain text, SQLite, or log outputs.
+
 ### Search, Favorites, Bookmarks & Continue Reading (Phase 3)
 - **Continue Reading Section**: Prominent visual shelf on the Home screen showing in-progress documents (`currentPage > 0`), progress bar, and percentage. Automatically hides when empty.
 - **In-Reader Bookmarks**: Quick bookmark toggle (`B` shortcut and toolbar button) to mark pages with custom labels and notes. Enforces single bookmark per page.
@@ -57,19 +73,20 @@ Libora is designed like a personal bookshelf: your local device contains only th
 
 ### Setup & Run
 ```bash
-# Get packages
+# Using Makefile (recommended)
+make help          # View all available targets
+make linux         # Run on Linux desktop
+make chrome        # Run on Google Chrome (web)
+make windows       # Run on Windows desktop
+make codegen       # Generate Drift database code
+make test          # Run test suite
+make analyze       # Run static analysis
+
+# Or using Flutter CLI directly
 flutter pub get
-
-# Generate Drift database code
 dart run build_runner build --delete-conflicting-outputs
-
-# Run on desktop (Linux)
 flutter run -d linux
-
-# Run tests
 flutter test
-
-# Static analysis
 flutter analyze
 ```
 

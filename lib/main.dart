@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pdfrx/pdfrx.dart';
 
 import 'app/app.dart';
 import 'core/utils/app_logger.dart';
@@ -10,6 +11,7 @@ void main() {
   runZonedGuarded(
     () {
       WidgetsFlutterBinding.ensureInitialized();
+      pdfrxFlutterInitialize();
 
       FlutterError.onError = (FlutterErrorDetails details) {
         FlutterError.presentError(details);

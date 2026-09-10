@@ -19,6 +19,15 @@ static void first_frame_cb(MyApplication* self, FlView* view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
 }
 
+// Fallback timer to ensure window is displayed even if the compositor delays first-frame
+static gboolean window_show_fallback_cb(gpointer user_data) {
+  GtkWindow* window = GTK_WINDOW(user_data);
+  if (!gtk_widget_get_visible(GTK_WIDGET(window))) {
+    gtk_widget_show(GTK_WIDGET(window));
+  }
+  return G_SOURCE_REMOVE;
+}
+
 // Implements GApplication::activate.
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
@@ -54,15 +63,20 @@ static void my_application_activate(GApplication* application) {
 
   gtk_window_set_default_size(window, 1280, 720);
 
+  // Set minimum window dimensions to avoid 0x0 buffer collapse during tiling or resizing
+  GdkGeometry geometry;
+  geometry.min_width = 800;
+  geometry.min_height = 500;
+  gtk_window_set_geometry_hints(window, nullptr, &geometry, GDK_HINT_MIN_SIZE);
+
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
       project, self->dart_entrypoint_arguments);
 
   FlView* view = fl_view_new(project);
   GdkRGBA background_color;
-  // Background defaults to black, override it here if necessary, e.g. #00000000
-  // for transparent.
-  gdk_rgba_parse(&background_color, "#000000");
+  // Background matches dark theme background (#18181B) to avoid empty black flashes
+  gdk_rgba_parse(&background_color, "#18181B");
   fl_view_set_background_color(view, &background_color);
   gtk_widget_show(GTK_WIDGET(view));
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
@@ -72,6 +86,9 @@ static void my_application_activate(GApplication* application) {
   g_signal_connect_swapped(view, "first-frame", G_CALLBACK(first_frame_cb),
                            self);
   gtk_widget_realize(GTK_WIDGET(view));
+
+  // 1-second fallback in case compositor or driver delays first-frame callback
+  g_timeout_add(1000, window_show_fallback_cb, window);
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
 

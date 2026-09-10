@@ -5,15 +5,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'tables/pdfs_table.dart';
 import 'tables/folders_table.dart';
 import 'tables/bookmarks_table.dart';
+import 'tables/github_accounts_table.dart';
+import 'tables/github_repositories_table.dart';
+import 'tables/sync_metadata_table.dart';
 import 'daos/pdfs_dao.dart';
 import 'daos/folders_dao.dart';
 import 'daos/bookmarks_dao.dart';
+import 'daos/github_dao.dart';
 
 part 'app_database.g.dart';
 
 @DriftDatabase(
-  tables: [Pdfs, Folders, Bookmarks],
-  daos: [PdfsDao, FoldersDao, BookmarksDao],
+  tables: [
+    Pdfs,
+    Folders,
+    Bookmarks,
+    GitHubAccounts,
+    GitHubRepositories,
+    SyncMetadata,
+  ],
+  daos: [PdfsDao, FoldersDao, BookmarksDao, GitHubDao],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e])
@@ -29,7 +40,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration {
@@ -44,6 +55,11 @@ class AppDatabase extends _$AppDatabase {
         if (from < 3) {
           await m.addColumn(bookmarks, bookmarks.note);
           await m.addColumn(bookmarks, bookmarks.updatedAt);
+        }
+        if (from < 4) {
+          await m.createTable(gitHubAccounts);
+          await m.createTable(gitHubRepositories);
+          await m.createTable(syncMetadata);
         }
       },
       beforeOpen: (details) async {

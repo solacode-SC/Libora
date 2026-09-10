@@ -211,93 +211,184 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 children: [
                   // PDF Viewer
                   Positioned.fill(
-                    child: PdfViewer.file(
-                      readerState.localPath!,
-                      controller: _viewerController,
-                      initialPageNumber: readerState.currentPage > 0
-                          ? readerState.currentPage
-                          : 1,
-                      params: PdfViewerParams(
-                        backgroundColor: isDark
-                            ? AppColors.darkBackground
-                            : AppColors.lightBackground,
-                        keyHandlerParams: const PdfViewerKeyHandlerParams(
-                          autofocus: true,
-                        ),
-                        onPageChanged: (pageNumber) {
-                          if (pageNumber != null) {
-                            controller.onPageChanged(pageNumber);
-                          }
-                        },
-                        onViewerReady: (document, _) {
-                          controller.setTotalPages(document.pages.length);
-                        },
-                        onKey: (params, key, isRealKeyPress) {
-                          if (key == LogicalKeyboardKey.escape) {
-                            _handleBack();
-                            return true;
-                          }
-                          if (key == LogicalKeyboardKey.keyB) {
-                            _handleBookmarkShortcut();
-                            return true;
-                          }
-                          if (key == LogicalKeyboardKey.equal ||
-                              key == LogicalKeyboardKey.add) {
-                            _viewerController.zoomUp();
-                            return true;
-                          }
-                          if (key == LogicalKeyboardKey.minus ||
-                              key == LogicalKeyboardKey.numpadSubtract) {
-                            _viewerController.zoomDown();
-                            return true;
-                          }
-                          if (key == LogicalKeyboardKey.digit0 ||
-                              key == LogicalKeyboardKey.numpad0) {
-                            _fitWidth();
-                            return true;
-                          }
-                          // Allow pdfrx to handle Page Up/Down, Home/End, Arrow keys
-                          return null;
-                        },
-                        errorBannerBuilder:
-                            (context, error, stackTrace, documentRef) {
-                              AppLogger.error(
-                                'PDF rendering error: $error',
-                                tag: 'Reader',
-                                error: error,
-                                stackTrace: stackTrace,
-                              );
-                              return ReaderErrorWidget(
-                                title: readerState.title,
-                                errorMessage: 'Unable to open this PDF.\n\nThe file may be damaged or unsupported.',
-                                isFileAvailable: true,
-                                onBack: _handleBack,
-                              );
-                            },
-                        viewerOverlayBuilder: (context, size, handleLinkTap) =>
-                            [
-                              // Tap on page area toggles controls while still passing through link taps
-                              GestureDetector(
-                                behavior: HitTestBehavior.translucent,
-                                onTapUp: (details) {
-                                  handleLinkTap(details.localPosition);
-                                  controller.toggleToolbar();
-                                },
-                                child: IgnorePointer(
-                                  child: SizedBox(
-                                    width: size.width,
-                                    height: size.height,
-                                  ),
-                                ),
+                    child: readerState.pdfBytes != null
+                        ? PdfViewer.data(
+                            readerState.pdfBytes!,
+                            sourceName: '${widget.pdfId}.pdf',
+                            controller: _viewerController,
+                            initialPageNumber: readerState.currentPage > 0
+                                ? readerState.currentPage
+                                : 1,
+                            params: PdfViewerParams(
+                              backgroundColor: isDark
+                                  ? AppColors.darkBackground
+                                  : AppColors.lightBackground,
+                              keyHandlerParams: const PdfViewerKeyHandlerParams(
+                                autofocus: true,
                               ),
-                              // Vertical scrollbar thumb
-                              PdfViewerScrollThumb(
-                                controller: _viewerController,
-                                orientation: ScrollbarOrientation.right,
+                              onPageChanged: (pageNumber) {
+                                if (pageNumber != null) {
+                                  controller.onPageChanged(pageNumber);
+                                }
+                              },
+                              onViewerReady: (document, _) {
+                                controller.setTotalPages(document.pages.length);
+                              },
+                              onKey: (params, key, isRealKeyPress) {
+                                if (key == LogicalKeyboardKey.escape) {
+                                  _handleBack();
+                                  return true;
+                                }
+                                if (key == LogicalKeyboardKey.keyB) {
+                                  _handleBookmarkShortcut();
+                                  return true;
+                                }
+                                if (key == LogicalKeyboardKey.equal ||
+                                    key == LogicalKeyboardKey.add) {
+                                  _viewerController.zoomUp();
+                                  return true;
+                                }
+                                if (key == LogicalKeyboardKey.minus ||
+                                    key == LogicalKeyboardKey.numpadSubtract) {
+                                  _viewerController.zoomDown();
+                                  return true;
+                                }
+                                if (key == LogicalKeyboardKey.digit0 ||
+                                    key == LogicalKeyboardKey.numpad0) {
+                                  _fitWidth();
+                                  return true;
+                                }
+                                // Allow pdfrx to handle Page Up/Down, Home/End, Arrow keys
+                                return null;
+                              },
+                              errorBannerBuilder:
+                                  (context, error, stackTrace, documentRef) {
+                                AppLogger.error(
+                                  'PDF rendering error: $error',
+                                  tag: 'Reader',
+                                  error: error,
+                                  stackTrace: stackTrace,
+                                );
+                                return ReaderErrorWidget(
+                                  title: readerState.title,
+                                  errorMessage:
+                                      'Unable to open this PDF.\n\nThe file may be damaged or unsupported.',
+                                  isFileAvailable: true,
+                                  onBack: _handleBack,
+                                );
+                              },
+                              viewerOverlayBuilder:
+                                  (context, size, handleLinkTap) => [
+                                    // Tap on page area toggles controls while still passing through link taps
+                                    GestureDetector(
+                                      behavior: HitTestBehavior.translucent,
+                                      onTapUp: (details) {
+                                        handleLinkTap(details.localPosition);
+                                        controller.toggleToolbar();
+                                      },
+                                      child: IgnorePointer(
+                                        child: SizedBox(
+                                          width: size.width,
+                                          height: size.height,
+                                        ),
+                                      ),
+                                    ),
+                                    // Vertical scrollbar thumb
+                                    PdfViewerScrollThumb(
+                                      controller: _viewerController,
+                                      orientation: ScrollbarOrientation.right,
+                                    ),
+                                  ],
+                            ),
+                          )
+                        : PdfViewer.file(
+                            readerState.localPath!,
+                            controller: _viewerController,
+                            initialPageNumber: readerState.currentPage > 0
+                                ? readerState.currentPage
+                                : 1,
+                            params: PdfViewerParams(
+                              backgroundColor: isDark
+                                  ? AppColors.darkBackground
+                                  : AppColors.lightBackground,
+                              keyHandlerParams: const PdfViewerKeyHandlerParams(
+                                autofocus: true,
                               ),
-                            ],
-                      ),
-                    ),
+                              onPageChanged: (pageNumber) {
+                                if (pageNumber != null) {
+                                  controller.onPageChanged(pageNumber);
+                                }
+                              },
+                              onViewerReady: (document, _) {
+                                controller.setTotalPages(document.pages.length);
+                              },
+                              onKey: (params, key, isRealKeyPress) {
+                                if (key == LogicalKeyboardKey.escape) {
+                                  _handleBack();
+                                  return true;
+                                }
+                                if (key == LogicalKeyboardKey.keyB) {
+                                  _handleBookmarkShortcut();
+                                  return true;
+                                }
+                                if (key == LogicalKeyboardKey.equal ||
+                                    key == LogicalKeyboardKey.add) {
+                                  _viewerController.zoomUp();
+                                  return true;
+                                }
+                                if (key == LogicalKeyboardKey.minus ||
+                                    key == LogicalKeyboardKey.numpadSubtract) {
+                                  _viewerController.zoomDown();
+                                  return true;
+                                }
+                                if (key == LogicalKeyboardKey.digit0 ||
+                                    key == LogicalKeyboardKey.numpad0) {
+                                  _fitWidth();
+                                  return true;
+                                }
+                                // Allow pdfrx to handle Page Up/Down, Home/End, Arrow keys
+                                return null;
+                              },
+                              errorBannerBuilder:
+                                  (context, error, stackTrace, documentRef) {
+                                AppLogger.error(
+                                  'PDF rendering error: $error',
+                                  tag: 'Reader',
+                                  error: error,
+                                  stackTrace: stackTrace,
+                                );
+                                return ReaderErrorWidget(
+                                  title: readerState.title,
+                                  errorMessage:
+                                      'Unable to open this PDF.\n\nThe file may be damaged or unsupported.',
+                                  isFileAvailable: true,
+                                  onBack: _handleBack,
+                                );
+                              },
+                              viewerOverlayBuilder:
+                                  (context, size, handleLinkTap) => [
+                                    // Tap on page area toggles controls while still passing through link taps
+                                    GestureDetector(
+                                      behavior: HitTestBehavior.translucent,
+                                      onTapUp: (details) {
+                                        handleLinkTap(details.localPosition);
+                                        controller.toggleToolbar();
+                                      },
+                                      child: IgnorePointer(
+                                        child: SizedBox(
+                                          width: size.width,
+                                          height: size.height,
+                                        ),
+                                      ),
+                                    ),
+                                    // Vertical scrollbar thumb
+                                    PdfViewerScrollThumb(
+                                      controller: _viewerController,
+                                      orientation: ScrollbarOrientation.right,
+                                    ),
+                                  ],
+                            ),
+                          ),
                   ),
 
                   // Top Toolbar (animated slide)

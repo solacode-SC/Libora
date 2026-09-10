@@ -12,6 +12,8 @@ import '../../../../core/widgets/app_section_header.dart';
 import '../../../../core/widgets/library_dialogs.dart';
 import '../../../../core/widgets/pdf_card.dart';
 import '../../../folders/domain/models/folder_item.dart';
+import '../../../github/presentation/controllers/github_providers.dart';
+import '../../../github/presentation/controllers/sync_controller.dart';
 import '../../domain/models/pdf_item.dart';
 import '../controllers/library_controller.dart';
 import '../controllers/library_state.dart';
@@ -93,271 +95,336 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           ? AppColors.darkBackground
           : AppColors.lightBackground,
       body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: isMobile ? AppSpacing.md : AppSpacing.xxl,
-            vertical: isMobile ? AppSpacing.md : AppSpacing.xl,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              AppSectionHeader(
-                eyebrow: activeFolder != null
-                    ? 'FOLDER: ${activeFolder.name.toUpperCase()}'
-                    : 'LOCAL BOOKSHELF',
-                title: activeFolder != null ? activeFolder.name : 'My Library',
-                subtitle: activeFolder != null
-                    ? 'Documents categorized inside this folder.'
-                    : 'Documents stored and imported locally on this device.',
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (activeFolder != null) ...[
-                      AppButton.ghost(
-                        label: 'All Books',
-                        icon: Icons.arrow_back_rounded,
-                        size: AppButtonSize.small,
-                        onPressed: () => controller.selectFolder(null),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                    ],
-                    AppBadge(
-                      label:
-                          '${visiblePdfs.length} ${visiblePdfs.length == 1 ? 'BOOK' : 'BOOKS'}',
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    AppButton.primary(
-                      label: libraryState.isImporting
-                          ? 'Importing...'
-                          : 'Import PDF',
-                      icon: libraryState.isImporting ? null : Icons.add_rounded,
-                      size: AppButtonSize.small,
-                      onPressed: libraryState.isImporting
-                          ? null
-                          : () => controller.importPdfs(),
-                    ),
-                  ],
-                ),
-                showBottomBorder: true,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1400),
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? AppSpacing.md : AppSpacing.xxl,
+                vertical: isMobile ? AppSpacing.md : AppSpacing.xl,
               ),
-
-              // Import Progress Bar Indicator
-              if (libraryState.isImporting &&
-                  libraryState.importProgress != null) ...[
-                const SizedBox(height: AppSpacing.sm),
-                Row(
-                  children: [
-                    const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2.0),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        libraryState.importProgress!,
-                        style: TextStyle(
-                          fontSize: 12.0,
-                          color: isDark
-                              ? AppColors.darkTextSecondary
-                              : AppColors.lightTextSecondary,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  AppSectionHeader(
+                    eyebrow: activeFolder != null
+                        ? 'FOLDER: ${activeFolder.name.toUpperCase()}'
+                        : 'LOCAL BOOKSHELF',
+                    title: activeFolder != null
+                        ? activeFolder.name
+                        : 'My Library',
+                    subtitle: activeFolder != null
+                        ? 'Documents categorized inside this folder.'
+                        : 'Documents stored and imported locally on this device.',
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (activeFolder != null) ...[
+                          AppButton.ghost(
+                            label: 'All Books',
+                            icon: Icons.arrow_back_rounded,
+                            size: AppButtonSize.small,
+                            onPressed: () => controller.selectFolder(null),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                        ],
+                        AppBadge(
+                          label:
+                              '${visiblePdfs.length} ${visiblePdfs.length == 1 ? 'BOOK' : 'BOOKS'}',
                         ),
-                      ),
+                        const SizedBox(width: AppSpacing.sm),
+                        if (ref.watch(gitHubSelectedRepoStreamProvider).value != null) ...[
+                          Consumer(
+                            builder: (context, ref, _) {
+                              final syncState = ref.watch(syncControllerProvider);
+                              return AppButton.secondary(
+                                label: syncState.status.isSyncing ? 'Syncing...' : 'Sync',
+                                icon: syncState.status.isSyncing ? null : Icons.sync_rounded,
+                                size: AppButtonSize.small,
+                                onPressed: syncState.status.isSyncing
+                                    ? null
+                                    : () => ref.read(syncControllerProvider.notifier).syncNow(),
+                              );
+                            },
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                        ],
+                        AppButton.primary(
+                          label: libraryState.isImporting
+                              ? 'Importing...'
+                              : 'Import PDF',
+                          icon: libraryState.isImporting
+                              ? null
+                              : Icons.add_rounded,
+                          size: AppButtonSize.small,
+                          onPressed: libraryState.isImporting
+                              ? null
+                              : () => controller.importPdfs(),
+                        ),
+                      ],
+                    ),
+                    showBottomBorder: true,
+                  ),
+
+                  // Import Progress Bar Indicator
+                  if (libraryState.isImporting &&
+                      libraryState.importProgress != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Row(
+                      children: [
+                        const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2.0),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Text(
+                            libraryState.importProgress!,
+                            style: TextStyle(
+                              fontSize: 12.0,
+                              color: isDark
+                                  ? AppColors.darkTextSecondary
+                                  : AppColors.lightTextSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
-                ),
-              ],
 
-              const SizedBox(height: AppSpacing.md),
+                  // GitHub Sync Progress Bar Indicator
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final syncState = ref.watch(syncControllerProvider);
+                      if (!syncState.status.isSyncing || syncState.progress == null) {
+                        return const SizedBox.shrink();
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.only(top: AppSpacing.sm),
+                        child: Row(
+                          children: [
+                            const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2.0),
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: Text(
+                                syncState.progress!.message,
+                                style: TextStyle(
+                                  fontSize: 12.0,
+                                  color: isDark
+                                      ? AppColors.darkTextSecondary
+                                      : AppColors.lightTextSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
 
-              // Search & Filter Toolbar
-              Row(
-                children: [
-                  // Search Text Input
-                  Expanded(
-                    child: Container(
-                      height: 38,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.sm,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? AppColors.darkSurface
-                            : AppColors.lightSurface,
-                        borderRadius: AppSpacing.roundedSm,
-                        border: Border.all(color: borderColor, width: 1.0),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.search_rounded,
-                            size: 18,
-                            color: isDark
-                                ? AppColors.darkTextMuted
-                                : AppColors.lightTextMuted,
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Search & Filter Toolbar
+                  Row(
+                    children: [
+                      // Search Text Input
+                      Expanded(
+                        child: Container(
+                          height: 38,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.sm,
                           ),
-                          const SizedBox(width: AppSpacing.xs),
-                          Expanded(
-                            child: TextField(
-                              controller: _searchController,
-                              style: theme.textTheme.bodyMedium,
-                              decoration: InputDecoration(
-                                hintText:
-                                    'Search library by title or filename...',
-                                hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? AppColors.darkSurface
+                                : AppColors.lightSurface,
+                            borderRadius: AppSpacing.roundedSm,
+                            border: Border.all(color: borderColor, width: 1.0),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.search_rounded,
+                                size: 18,
+                                color: isDark
+                                    ? AppColors.darkTextMuted
+                                    : AppColors.lightTextMuted,
+                              ),
+                              const SizedBox(width: AppSpacing.xs),
+                              Expanded(
+                                child: TextField(
+                                  controller: _searchController,
+                                  style: theme.textTheme.bodyMedium,
+                                  decoration: InputDecoration(
+                                    hintText: 'Search library by title or filename...',
+                                    hintStyle: theme.textTheme.bodyMedium
+                                        ?.copyWith(
+                                          color: isDark
+                                              ? AppColors.darkTextMuted
+                                              : AppColors.lightTextMuted,
+                                        ),
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                  onChanged: (val) =>
+                                      controller.setSearchQuery(val),
+                                ),
+                              ),
+                              if (_searchController.text.isNotEmpty)
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.clear_rounded,
+                                    size: 16,
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
                                   color: isDark
                                       ? AppColors.darkTextMuted
                                       : AppColors.lightTextMuted,
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    controller.setSearchQuery('');
+                                  },
                                 ),
-                                border: InputBorder.none,
-                                isDense: true,
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                              onChanged: (val) =>
-                                  controller.setSearchQuery(val),
-                            ),
-                          ),
-                          if (_searchController.text.isNotEmpty)
-                            IconButton(
-                              icon: const Icon(Icons.clear_rounded, size: 16),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              color: isDark
-                                  ? AppColors.darkTextMuted
-                                  : AppColors.lightTextMuted,
-                              onPressed: () {
-                                _searchController.clear();
-                                controller.setSearchQuery('');
-                              },
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(width: AppSpacing.sm),
-
-                  // Sort Menu Button
-                  PopupMenuButton<LibrarySort>(
-                    tooltip: 'Sort Documents',
-                    onSelected: (sort) => controller.setSort(sort),
-                    itemBuilder: (context) => [
-                      for (final sort in LibrarySort.values)
-                        PopupMenuItem(
-                          value: sort,
-                          child: Row(
-                            children: [
-                              if (libraryState.selectedSort == sort)
-                                const Icon(Icons.check_rounded, size: 16)
-                              else
-                                const SizedBox(width: 16),
-                              const SizedBox(width: 8),
-                              Text(sort.label),
                             ],
                           ),
                         ),
-                    ],
-                    child: Container(
-                      height: 38,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.sm,
                       ),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? AppColors.darkSurface
-                            : AppColors.lightSurface,
-                        borderRadius: AppSpacing.roundedSm,
-                        border: Border.all(color: borderColor, width: 1.0),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.sort_rounded,
-                            size: 16,
-                            color: isDark
-                                ? AppColors.darkTextSecondary
-                                : AppColors.lightTextSecondary,
+
+                      const SizedBox(width: AppSpacing.sm),
+
+                      // Sort Menu Button
+                      PopupMenuButton<LibrarySort>(
+                        tooltip: 'Sort Documents',
+                        onSelected: (sort) => controller.setSort(sort),
+                        itemBuilder: (context) => [
+                          for (final sort in LibrarySort.values)
+                            PopupMenuItem(
+                              value: sort,
+                              child: Row(
+                                children: [
+                                  if (libraryState.selectedSort == sort)
+                                    const Icon(Icons.check_rounded, size: 16)
+                                  else
+                                    const SizedBox(width: 16),
+                                  const SizedBox(width: 8),
+                                  Text(sort.label),
+                                ],
+                              ),
+                            ),
+                        ],
+                        child: Container(
+                          height: 38,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.sm,
                           ),
-                          if (!isMobile) ...[
-                            const SizedBox(width: AppSpacing.xs),
-                            Text(
-                              libraryState.selectedSort.label,
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w500,
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? AppColors.darkSurface
+                                : AppColors.lightSurface,
+                            borderRadius: AppSpacing.roundedSm,
+                            border: Border.all(color: borderColor, width: 1.0),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.sort_rounded,
+                                size: 16,
                                 color: isDark
                                     ? AppColors.darkTextSecondary
                                     : AppColors.lightTextSecondary,
                               ),
-                            ),
-                          ],
-                        ],
+                              if (!isMobile) ...[
+                                const SizedBox(width: AppSpacing.xs),
+                                Text(
+                                  libraryState.selectedSort.label,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: isDark
+                                        ? AppColors.darkTextSecondary
+                                        : AppColors.lightTextSecondary,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
                       ),
+                    ],
+                  ),
+
+                  const SizedBox(height: AppSpacing.sm),
+
+                  // Filter Tabs (All, Favorites, Recent)
+                  Row(
+                    children: [
+                      _FilterChip(
+                        label: 'All',
+                        isSelected:
+                            libraryState.selectedFilter == LibraryFilter.all,
+                        onTap: () => controller.setFilter(LibraryFilter.all),
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      _FilterChip(
+                        label: 'Favorites',
+                        isSelected:
+                            libraryState.selectedFilter ==
+                            LibraryFilter.favorites,
+                        onTap: () =>
+                            controller.setFilter(LibraryFilter.favorites),
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      _FilterChip(
+                        label: 'Recent',
+                        isSelected:
+                            libraryState.selectedFilter == LibraryFilter.recent,
+                        onTap: () => controller.setFilter(LibraryFilter.recent),
+                      ),
+                      if (activeFolder != null) ...[
+                        const Spacer(),
+                        Chip(
+                          label: Text(
+                            'Folder: ${activeFolder.name}',
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          deleteIcon: const Icon(Icons.close_rounded, size: 14),
+                          onDeleted: () => controller.selectFolder(null),
+                          backgroundColor: isDark
+                              ? AppColors.darkSurfaceSubtle
+                              : AppColors.lightSurfaceSubtle,
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: AppSpacing.roundedSm,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Library Content Area
+                  Expanded(
+                    child: _buildLibraryContent(
+                      context,
+                      libraryState,
+                      controller,
+                      visiblePdfs,
+                      foldersMap,
                     ),
                   ),
                 ],
               ),
-
-              const SizedBox(height: AppSpacing.sm),
-
-              // Filter Tabs (All, Favorites, Recent)
-              Row(
-                children: [
-                  _FilterChip(
-                    label: 'All',
-                    isSelected:
-                        libraryState.selectedFilter == LibraryFilter.all,
-                    onTap: () => controller.setFilter(LibraryFilter.all),
-                  ),
-                  const SizedBox(width: AppSpacing.xs),
-                  _FilterChip(
-                    label: 'Favorites',
-                    isSelected:
-                        libraryState.selectedFilter == LibraryFilter.favorites,
-                    onTap: () => controller.setFilter(LibraryFilter.favorites),
-                  ),
-                  const SizedBox(width: AppSpacing.xs),
-                  _FilterChip(
-                    label: 'Recent',
-                    isSelected:
-                        libraryState.selectedFilter == LibraryFilter.recent,
-                    onTap: () => controller.setFilter(LibraryFilter.recent),
-                  ),
-                  if (activeFolder != null) ...[
-                    const Spacer(),
-                    Chip(
-                      label: Text(
-                        'Folder: ${activeFolder.name}',
-                        style: const TextStyle(fontSize: 11),
-                      ),
-                      deleteIcon: const Icon(Icons.close_rounded, size: 14),
-                      onDeleted: () => controller.selectFolder(null),
-                      backgroundColor: isDark
-                          ? AppColors.darkSurfaceSubtle
-                          : AppColors.lightSurfaceSubtle,
-                      shape: const RoundedRectangleBorder(
-                        borderRadius: AppSpacing.roundedSm,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-
-              const SizedBox(height: AppSpacing.md),
-
-              // Library Content Area
-              Expanded(
-                child: _buildLibraryContent(
-                  context,
-                  libraryState,
-                  controller,
-                  visiblePdfs,
-                  foldersMap,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -457,42 +524,70 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                 ? foldersMap[pdf.folderId]
                 : null;
 
-            return PdfCard(
+            return _LibraryPdfCard(
               pdf: pdf,
-              folderName: folder?.name,
-              onTap: () => context.push('/reader/${pdf.id}'),
-              onToggleFavorite: () => controller.toggleFavorite(pdf.id),
-              onRename: () async {
-                final newTitle = await LibraryDialogs.showRenameDialog(
-                  context,
-                  currentTitle: pdf.title,
-                );
-                if (newTitle != null) {
-                  await controller.renamePdf(pdf.id, newTitle);
-                }
-              },
-              onMoveToFolder: () async {
-                final selectedFolder =
-                    await LibraryDialogs.showMoveToFolderDialog(
-                      context,
-                      folders: state.folders,
-                      currentFolderId: pdf.folderId,
-                    );
-                // Note: user may choose null to move to root
-                await controller.moveToFolder(pdf.id, selectedFolder);
-              },
-              onDelete: () async {
-                final confirm = await LibraryDialogs.showConfirmDeleteDialog(
-                  context,
-                  title: pdf.title,
-                );
-                if (confirm) {
-                  await controller.deletePdf(pdf.id);
-                }
-              },
+              folder: folder,
+              controller: controller,
+              allFolders: state.folders,
             );
           },
         );
+      },
+    );
+  }
+}
+
+class _LibraryPdfCard extends ConsumerWidget {
+  final PdfItem pdf;
+  final FolderItem? folder;
+  final LibraryController controller;
+  final List<FolderItem> allFolders;
+
+  const _LibraryPdfCard({
+    required this.pdf,
+    this.folder,
+    required this.controller,
+    required this.allFolders,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final syncMeta = ref.watch(gitHubSyncMetadataForPdfProvider(pdf.id)).value;
+
+    return PdfCard(
+      pdf: pdf,
+      folderName: folder?.name,
+      syncStatus: syncMeta?.syncStatus,
+      onTap: () => context.push('/reader/${pdf.id}'),
+      onToggleFavorite: () => controller.toggleFavorite(pdf.id),
+      onRename: () async {
+        final newTitle = await LibraryDialogs.showRenameDialog(
+          context,
+          currentTitle: pdf.title,
+        );
+        if (newTitle != null) {
+          await controller.renamePdf(pdf.id, newTitle);
+        }
+      },
+      onMoveToFolder: () async {
+        final selectedFolder = await LibraryDialogs.showMoveToFolderDialog(
+          context,
+          folders: allFolders,
+          currentFolderId: pdf.folderId,
+        );
+        await controller.moveToFolder(pdf.id, selectedFolder);
+      },
+      onDelete: () async {
+        final choice = await LibraryDialogs.showDeletePdfChoiceDialog(
+          context,
+          title: pdf.title,
+          isSyncedToGitHub: syncMeta != null,
+        );
+        if (choice == PdfDeletionChoice.localOnly) {
+          await controller.deletePdf(pdf.id, deleteFromRemote: false);
+        } else if (choice == PdfDeletionChoice.both) {
+          await controller.deletePdf(pdf.id, deleteFromRemote: true);
+        }
       },
     );
   }

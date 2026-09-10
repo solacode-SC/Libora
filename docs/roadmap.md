@@ -61,12 +61,37 @@ This roadmap defines the iterative development plan for Libora from initial foun
 
 ---
 
-## Phase 4 — GitHub Integration
-- GitHub repository connection flow via Personal Access Token (PAT).
-- Secure token storage using `flutter_secure_storage`.
-- GitHub REST API service: fetch tree, commits, and repository metadata.
-- Repository configuration management (add, edit, remove repositories).
-- Token validation, rate-limiting handling, and connection state checks.
+## Phase 3.5 — Flutter Web Local PDF Storage & Reader Compatibility (Completed)
+- Cross-platform `PdfStorageService` abstraction isolating binary document and thumbnail storage from platform-specific IO APIs.
+- Browser IndexedDB implementation (`WebPdfStorage`) using modern `package:web` and `dart:js_interop` with dedicated `pdfs` and `covers` object stores under `libora_storage`.
+- In-memory test storage (`MemoryPdfStorage`) enabling fast and deterministic unit and widget testing without native dependencies.
+- Multiplatform file picker refactoring using `PlatformFile.readAsBytes()` for seamless PDF imports across Web and Desktop without deprecated byte getters.
+- Universal PDF Reader compatibility powered by `PdfViewer.data()` on Web and `PdfViewer.file()` on Desktop, with `pdfrxFlutterInitialize()` registered in `main.dart`.
+- Memory-cached cover thumbnail rendering on `PdfCard` and `ContinueReadingCard` directly from IndexedDB byte streams.
+- Full local PDF lifecycle on Web: Import -> IndexedDB storage -> Drift metadata persistence -> Search -> Open -> Read with 500ms debounced progress -> Bookmarks -> Delete (cascades to IndexedDB and Drift).
+- Zero token leakage and zero regressions on desktop targets (Linux, Windows, macOS).
+
+---
+
+## Phase 4 — GitHub Repository Sync & Local Library Mirroring (Completed)
+- Drift Schema migration to v4 introducing `git_hub_accounts`, `git_hub_repositories`, and `sync_metadata` tables.
+- GitHub Personal Access Token (PAT) authentication with zero token leakage; credentials persisted exclusively in device keychain (`FlutterSecureStorage`).
+- Robust GitHub REST API client (`GitHubApiClient`) with token validation, repository listing, Git trees, base64 content upload, direct binary streaming download, and deletion.
+- Comprehensive GitHub error translation handling 401 unauthorized, 403/429 rate limits with reset timestamp, 404 not found, 409 empty repositories, 100MB file limit, and offline networks.
+- Deterministic Folder Path Resolver (`FolderPathResolver`) bidirectionally mapping Libora's folder hierarchy to remote directory paths (e.g. `Books/Tech/Clean Code.pdf`).
+- Two-Way Idempotent Synchronization Engine (`LibrarySyncEngine`):
+  - Local Additions: Uploads local PDFs to GitHub and persists `SyncMetadata`.
+  - Remote Additions: Downloads new PDFs from GitHub, validates PDF headers, resolves local folders, and imports into local library.
+  - Idempotency: Subsequent sync with no changes executes 0 uploads, 0 downloads, and 0 writes.
+  - Move/Rename Handling: Deletes old remote path and uploads to new path on local categorization changes.
+  - Safe Remote Deletions: Remote deletions never wipe local files; marks them as detached/upload-pending.
+  - Conflict Handling: Detects concurrent modifications on both ends without silent data loss.
+- UI & Presentation Integration:
+  - `GitHubScreen` featuring disconnected state (token input, scopes guide, security guarantees) and connected state (user avatar, repo switcher, sync status banner, last synced timestamp, live sync summary, mirror list).
+  - Editorial `PdfCard` sync status indicators (`synced`, `uploadPending`, `downloadPending`, `conflict`, `error`, `syncing`).
+  - `LibraryScreen` header sync button with live progress indicator.
+  - Safe deletion dialog offering "Delete from Libora only" vs "Delete from Libora and GitHub".
+- 105 automated unit and integration tests covering all features with zero regressions.
 
 ---
 

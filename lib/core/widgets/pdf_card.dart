@@ -1,17 +1,22 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
+import '../../features/github/domain/models/sync_status.dart';
 import '../../features/library/domain/models/pdf_item.dart';
+import '../storage/pdf_storage_provider.dart';
 import 'app_card.dart';
 
 /// Reusable editorial card displaying a local PDF document in the library grid.
-class PdfCard extends StatelessWidget {
+class PdfCard extends ConsumerWidget {
   final PdfItem pdf;
   final String? folderName;
+  final SyncStatus? syncStatus;
   final VoidCallback? onTap;
   final VoidCallback? onToggleFavorite;
   final VoidCallback? onRename;
@@ -22,6 +27,7 @@ class PdfCard extends StatelessWidget {
     super.key,
     required this.pdf,
     this.folderName,
+    this.syncStatus,
     this.onTap,
     this.onToggleFavorite,
     this.onRename,
@@ -40,15 +46,16 @@ class PdfCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
-    final hasPhysicalFile =
-        pdf.localPath != null && File(pdf.localPath!).existsSync();
-    final hasCoverFile =
-        pdf.coverPath != null && File(pdf.coverPath!).existsSync();
+    final hasPhysicalFile = kIsWeb ||
+        (pdf.localPath != null && File(pdf.localPath!).existsSync());
+    final hasCoverFile = !kIsWeb &&
+        pdf.coverPath != null &&
+        File(pdf.coverPath!).existsSync();
 
     return AppCard(
       onTap: hasPhysicalFile ? onTap : null,
@@ -74,6 +81,29 @@ class PdfCard extends StatelessWidget {
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) =>
                           _buildPlaceholder(isDark, borderColor),
+                    ),
+                  )
+                else if (kIsWeb)
+                  ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(AppSpacing.radiusLg),
+                      topRight: Radius.circular(AppSpacing.radiusLg),
+                    ),
+                    child: FutureBuilder<Uint8List?>(
+                      future: ref
+                          .watch(pdfStorageServiceProvider)
+                          .readCover(pdf.id),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasData && snapshot.data != null) {
+                          return Image.memory(
+                            snapshot.data!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                _buildPlaceholder(isDark, borderColor),
+                          );
+                        }
+                        return _buildPlaceholder(isDark, borderColor);
+                      },
                     ),
                   )
                 else
@@ -111,6 +141,12 @@ class PdfCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                  )
+                else if (syncStatus != null)
+                  Positioned(
+                    top: 4.0,
+                    left: 4.0,
+                    child: _buildSyncBadge(syncStatus!, isDark),
                   ),
 
                 // Quick Favorite Button (Top Right)
@@ -414,4 +450,65 @@ class PdfCard extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildSyncBadge(SyncStatus status, bool isDark) {
+    IconData icon;
+    Color color;
+    String tooltip;
+
+    switch (status) {
+      case SyncStatus.synced:
+        icon = Icons.cloud_done_rounded;
+        color = Colors.teal;
+        tooltip = 'Synchronized with GitHub';
+        break;
+      case SyncStatus.uploadPending:
+        icon = Icons.cloud_upload_outlined;
+        color = Colors.amber.shade700;
+        tooltip = 'Pending upload to GitHub';
+        break;
+      case SyncStatus.downloadPending:
+        icon = Icons.cloud_download_outlined;
+        color = Colors.blue;
+        tooltip = 'Pending download from GitHub';
+        break;
+      case SyncStatus.deletePending:
+        icon = Icons.delete_outline_rounded;
+        color = Colors.red;
+        tooltip = 'Pending deletion on GitHub';
+        break;
+      case SyncStatus.syncing:
+        icon = Icons.sync_rounded;
+        color = Colors.blue;
+        tooltip = 'Syncing with GitHub...';
+        break;
+      case SyncStatus.conflict:
+        icon = Icons.warning_amber_rounded;
+        color = Colors.orange;
+        tooltip = 'Sync conflict with GitHub';
+        break;
+      case SyncStatus.error:
+        icon = Icons.error_outline_rounded;
+        color = Colors.red;
+        tooltip = 'Sync error';
+        break;
+    }
+
+    return Tooltip(
+      message: tooltip,
+      child: Container(
+        padding: const EdgeInsets.all(4.0),
+        decoration: BoxDecoration(
+          color: (isDark ? AppColors.darkSurface : AppColors.lightSurface).withValues(alpha: 0.85),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          icon,
+          size: 14.0,
+          color: color,
+        ),
+      ),
+    );
+  }
 }
+
